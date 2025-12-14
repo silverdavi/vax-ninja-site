@@ -175,25 +175,27 @@ export class GameScene extends Phaser.Scene {
   
   /**
    * Create floating red spots for measles blur effect
-   * Spot count scales with difficulty
+   * These should be CLEARLY VISIBLE to obstruct vision
    */
   private createBlurSpots(width: number, height: number) {
     const numSpots = this.diffConfig.blurSpotCount;
     
     for (let i = 0; i < numSpots; i++) {
-      const size = 30 + Math.random() * 60; // Random size 30-90
+      const size = 40 + Math.random() * 80; // Random size 40-120
       const x = Math.random() * width;
       const y = Math.random() * height;
       
-      const spot = this.add.circle(x, y, size, 0xff4444, 0.15);
+      // Create spot with visible opacity (NOT multiply blend)
+      const spot = this.add.circle(x, y, size, 0xff2222, 0.35);
       spot.setDepth(180);
       spot.setScrollFactor(0);
-      spot.setBlendMode(Phaser.BlendModes.MULTIPLY);
+      // Add stroke for better visibility
+      spot.setStrokeStyle(3, 0xff0000, 0.5);
       
       // Store velocity for animation
-      spot.setData('vx', (Math.random() - 0.5) * 0.5);
-      spot.setData('vy', (Math.random() - 0.5) * 0.5);
-      spot.setData('baseAlpha', 0.1 + Math.random() * 0.15);
+      spot.setData('vx', (Math.random() - 0.5) * 0.8);
+      spot.setData('vy', (Math.random() - 0.5) * 0.8);
+      spot.setData('baseAlpha', 0.25 + Math.random() * 0.2); // 0.25-0.45 alpha
       
       this.blurSpots.push(spot);
     }
