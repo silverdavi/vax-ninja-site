@@ -10,6 +10,7 @@ export class GameOverScene extends Phaser.Scene {
   private won: boolean = false;
   private gameState!: GameState;
   private message: string = '';
+  private isMobile: boolean = false;
   
   constructor() {
     super({ key: 'GameOverScene' });
@@ -24,37 +25,35 @@ export class GameOverScene extends Phaser.Scene {
   create() {
     const { width, height } = this.cameras.main;
     const level = GAME_CONFIG.levels[this.gameState.currentLevel];
+    this.isMobile = this.registry.get('isMobile') || false;
     
     this.cameras.main.setBackgroundColor(GAME_CONFIG.colors.bg);
     
+    const titleSize = this.isMobile ? '16px' : '22px';
+    const textSize = this.isMobile ? '14px' : '18px';
+    
     if (this.won) {
       // === WIN ===
-      this.add.text(width / 2, 50, level.emoji, { fontSize: '48px' }).setOrigin(0.5);
+      this.add.text(width / 2, height * 0.1, level.emoji, { fontSize: '48px' }).setOrigin(0.5);
       
-      this.add.text(width / 2, 110, 'DISEASE\nACQUIRED!', {
+      this.add.text(width / 2, height * 0.22, 'DISEASE\nACQUIRED!', {
         fontFamily: '"Press Start 2P"',
-        fontSize: '18px',
+        fontSize: titleSize,
         color: '#39FF14',
         align: 'center',
       }).setOrigin(0.5);
       
-      this.add.text(width / 2, 170, this.message, {
+      this.add.text(width / 2, height * 0.35, this.message, {
         fontFamily: 'VT323',
-        fontSize: '18px',
+        fontSize: textSize,
         color: '#E8E8E8',
       }).setOrigin(0.5);
       
       // New debuff
-      this.add.text(width / 2, 210, '⚠️ NEW DEBUFF:', {
-        fontFamily: '"Press Start 2P"',
-        fontSize: '8px',
-        color: '#FFE66D',
-      }).setOrigin(0.5);
-      
-      this.add.text(width / 2, 235, level.debuff, {
+      this.add.text(width / 2, height * 0.42, '⚠️ NEW DEBUFF: ' + level.debuff, {
         fontFamily: 'VT323',
-        fontSize: '20px',
-        color: '#FF6B9D',
+        fontSize: textSize,
+        color: '#FFE66D',
       }).setOrigin(0.5);
       
       // All debuffs
@@ -64,7 +63,7 @@ export class GameOverScene extends Phaser.Scene {
           return l ? l.emoji : '';
         }).join(' ');
         
-        this.add.text(width / 2, 280, 'Your diseases: ' + debuffList, {
+        this.add.text(width / 2, height * 0.5, 'Your diseases: ' + debuffList, {
           fontFamily: 'VT323',
           fontSize: '16px',
           color: '#9A8AB0',
@@ -76,18 +75,18 @@ export class GameOverScene extends Phaser.Scene {
       if (nextLevel < GAME_CONFIG.levels.length) {
         const next = GAME_CONFIG.levels[nextLevel];
         
-        this.add.text(width / 2, 340, `Next: ${next.emoji} ${next.name}`, {
+        this.add.text(width / 2, height * 0.6, `Next: ${next.emoji} ${next.name}`, {
           fontFamily: 'VT323',
-          fontSize: '18px',
+          fontSize: textSize,
           color: '#E8E8E8',
         }).setOrigin(0.5);
         
-        const nextBtn = this.add.text(width / 2, 400, 'TAP FOR NEXT LEVEL', {
+        const nextBtn = this.add.text(width / 2, height * 0.72, this.isMobile ? 'TAP FOR NEXT' : 'SPACE FOR NEXT', {
           fontFamily: '"Press Start 2P"',
-          fontSize: '12px',
+          fontSize: this.isMobile ? '12px' : '14px',
           color: '#1a0a2e',
           backgroundColor: '#39FF14',
-          padding: { x: 15, y: 12 },
+          padding: { x: 15, y: 10 },
         }).setOrigin(0.5);
         nextBtn.setInteractive({ useHandCursor: true });
         
@@ -107,66 +106,63 @@ export class GameOverScene extends Phaser.Scene {
         this.input.keyboard?.on('keydown-SPACE', goNext);
         
       } else {
-        this.add.text(width / 2, 350, '🎉 ALL DISEASES\nCOLLECTED! 🎉', {
+        this.add.text(width / 2, height * 0.6, '🎉 ALL DISEASES COLLECTED! 🎉', {
           fontFamily: '"Press Start 2P"',
-          fontSize: '12px',
+          fontSize: this.isMobile ? '10px' : '14px',
           color: '#FF6B9D',
-          align: 'center',
         }).setOrigin(0.5);
         
-        this.add.text(width / 2, 420, "You're a walking biohazard!", {
+        this.add.text(width / 2, height * 0.7, "You're a walking biohazard!", {
           fontFamily: 'VT323',
-          fontSize: '18px',
+          fontSize: textSize,
           color: '#FFE66D',
         }).setOrigin(0.5);
         
-        // Menu button
-        const menuBtn = this.add.text(width / 2, 500, 'MAIN MENU', {
+        const menuBtn = this.add.text(width / 2, height * 0.82, 'MAIN MENU', {
           fontFamily: '"Press Start 2P"',
           fontSize: '12px',
           color: '#9A8AB0',
         }).setOrigin(0.5);
         menuBtn.setInteractive({ useHandCursor: true });
         menuBtn.on('pointerdown', () => this.scene.start('TitleScene'));
+        this.input.on('pointerdown', () => this.scene.start('TitleScene'));
       }
       
     } else {
       // === LOSE ===
-      this.add.text(width / 2, 60, '💉', { fontSize: '48px' }).setOrigin(0.5);
+      this.add.text(width / 2, height * 0.12, '💉', { fontSize: '48px' }).setOrigin(0.5);
       
-      this.add.text(width / 2, 120, 'VACCINATED!', {
+      this.add.text(width / 2, height * 0.25, 'VACCINATED!', {
         fontFamily: '"Press Start 2P"',
-        fontSize: '18px',
+        fontSize: titleSize,
         color: '#00D4FF',
       }).setOrigin(0.5);
       
-      this.add.text(width / 2, 170, this.message, {
+      this.add.text(width / 2, height * 0.35, this.message, {
         fontFamily: 'VT323',
-        fontSize: '18px',
+        fontSize: textSize,
         color: '#E8E8E8',
       }).setOrigin(0.5);
       
-      this.add.text(width / 2, 220, `Level ${this.gameState.currentLevel + 1}: ${level.name}`, {
+      this.add.text(width / 2, height * 0.42, `Level ${this.gameState.currentLevel + 1}: ${level.name}`, {
         fontFamily: 'VT323',
         fontSize: '16px',
         color: '#9A8AB0',
       }).setOrigin(0.5);
       
-      // Satire
-      this.add.text(width / 2, 280, 'You are now protected from\npreventable diseases.\nHow terrible! 😭', {
+      this.add.text(width / 2, height * 0.55, 'You are now protected from\npreventable diseases.\nHow terrible! 😭', {
         fontFamily: 'VT323',
         fontSize: '16px',
         color: '#FFE66D',
         align: 'center',
       }).setOrigin(0.5);
       
-      // Retry button
-      const retryBtn = this.add.text(width / 2, 380, 'TAP TO TRY AGAIN', {
+      const retryBtn = this.add.text(width / 2, height * 0.72, this.isMobile ? 'TAP TO RETRY' : 'SPACE TO RETRY', {
         fontFamily: '"Press Start 2P"',
-        fontSize: '12px',
+        fontSize: this.isMobile ? '12px' : '14px',
         color: '#1a0a2e',
         backgroundColor: '#FF6B9D',
-        padding: { x: 15, y: 12 },
+        padding: { x: 15, y: 10 },
       }).setOrigin(0.5);
       retryBtn.setInteractive({ useHandCursor: true });
       
@@ -187,8 +183,8 @@ export class GameOverScene extends Phaser.Scene {
       this.input.keyboard?.on('keydown-SPACE', retry);
     }
     
-    // Menu at bottom
-    this.add.text(width / 2, height - 30, 'M = Menu', {
+    // Menu hint
+    this.add.text(width / 2, height - 25, 'M = Menu', {
       fontFamily: 'VT323',
       fontSize: '14px',
       color: '#9A8AB0',

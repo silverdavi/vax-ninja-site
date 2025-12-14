@@ -28,9 +28,10 @@ export class GameScene extends Phaser.Scene {
   private inputDirection: 'up' | 'down' | 'left' | 'right' | 'none' = 'none';
   
   // Mobile joystick
-  private joystickBase!: Phaser.GameObjects.Arc;
-  private joystickThumb!: Phaser.GameObjects.Arc;
+  private joystickBase?: Phaser.GameObjects.Arc;
+  private joystickThumb?: Phaser.GameObjects.Arc;
   private joystickActive: boolean = false;
+  private isMobile: boolean = false;
   
   // Game state
   private gameState!: GameState;
@@ -45,10 +46,6 @@ export class GameScene extends Phaser.Scene {
   // UI
   private scoreText!: Phaser.GameObjects.Text;
   private oxygenText?: Phaser.GameObjects.Text;
-  
-  // Layout
-  private gameAreaHeight: number = 0;
-  private joystickY: number = 0;
   
   constructor() {
     super({ key: 'GameScene' });
@@ -68,26 +65,25 @@ export class GameScene extends Phaser.Scene {
     for (const debuff of this.gameState.activeDebuffs) {
       if (debuff === 'polio') this.speedMultiplier *= 0.7;
     }
+    
+    this.isMobile = this.registry.get('isMobile') || false;
   }
 
   create() {
     const { width, height } = this.cameras.main;
     this.cameras.main.setBackgroundColor(GAME_CONFIG.colors.bg);
     
-    // Calculate layout for mobile
-    // Top: stats (60px), Middle: game, Bottom: joystick (120px)
-    const joystickHeight = 120;
-    this.gameAreaHeight = height - joystickHeight;
-    this.joystickY = height - joystickHeight / 2;
-    
     const level = GAME_CONFIG.levels[this.gameState.currentLevel];
     const mazeData = MAZES[level.id as keyof typeof MAZES] || MAZES.covid;
     
+    // Calculate game area height (leave room for joystick on mobile)
+    const gameAreaHeight = this.isMobile ? height - 100 : height - 40;
+    
     // 1. Build maze
     this.maze = new Maze(this, 24);
-    this.maze.build(mazeData, GAME_CONFIG.colors.wall, this.gameAreaHeight);
+    this.maze.build(mazeData, GAME_CONFIG.colors.wall, gameAreaHeight);
     
-    // 2. Create player at grid position
+    // 2. Create player
     const playerPixel = this.maze.getPixelFromTile(this.maze.playerStartTile.x, this.maze.playerStartTile.y);
     this.player = new Player(this, playerPixel.x, playerPixel.y, this.maze.tileSize);
     this.player.setGridPosition(
@@ -99,12 +95,11 @@ export class GameScene extends Phaser.Scene {
     );
     this.player.speed = GAME_CONFIG.player.speed * this.speedMultiplier;
     
-    // Apply whooping cough debuff
     if (this.gameState.activeDebuffs.includes('whooping')) {
       this.player.cantStopMoving = true;
     }
     
-    // 3. Create doctor at grid position
+    // 3. Create doctor
     const doctorPixel = this.maze.getPixelFromTile(this.maze.doctorStartTile.x, this.maze.doctorStartTile.y);
     this.doctor = new Doctor(this, doctorPixel.x, doctorPixel.y);
     this.doctor.setGridPosition(
@@ -119,14 +114,16 @@ export class GameScene extends Phaser.Scene {
     // 4. Place collectibles
     this.placeCollectibles(level);
     
-    // 5. Setup keyboard input
+    // 5. Setup input
     this.setupKeyboard();
     
-    // 6. Create mobile joystick
-    this.createJoystick(width);
+    // 6. Create joystick (mobile only)
+    if (this.isMobile) {
+      this.createJoystick(width, height);
+    }
     
     // 7. Create UI
-    this.createUI(level);
+    this.createUI(level, width);
     
     // 8. Setup debuff timers
     this.setupDebuffTimers(level);
@@ -146,73 +143,70 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private createJoystick(width: number) {
-    // Joystick background area
-    const joystickBg = this.add.rectangle(
-      width / 2,
-      this.joystickY,
-      width,
-      120,
-      0x1a0a2e,
-      0.95
-    );
-    joystickBg.setDepth(50);
+  private createJoystick(width: number, height: number) {
+    const joystickY = height - 50;
     
-    // Joystick base
-    this.joystickBase = this.add.circle(width / 2, this.joystickY, 50, 0x3d2b5e);
-    this.joystickBase.setStrokeStyle(3, 0x9A8AB0);
+    // Joystick background
+    this.add.rectangle(width / 2, joystickY, width, 100, 0x1a0a2e, 0.9).setDepth(50);
+    
+    // Base
+    this.joystickBase = this.add.circle(width / 2, joystickY, 40, 0x3d2b5e);
+    this.joystickBase.setStrokeStyle(2, 0x9A8AB0);
     this.joystickBase.setDepth(51);
     
-    // Joystick thumb
-    this.joystickThumb = this.add.circle(width / 2, this.joystickY, 25, 0xFF6B9D);
+    // Thumb
+    this.joystickThumb = this.add.circle(width / 2, joystickY, 20, 0xFF6B9D);
     this.joystickThumb.setStrokeStyle(2, 0xffffff);
     this.joystickThumb.setDepth(52);
     
-    // Direction arrows around joystick
-    const arrowStyle = { fontSize: '20px', color: '#9A8AB0' };
-    this.add.text(width / 2, this.joystickY - 70, '▲', arrowStyle).setOrigin(0.5).setDepth(51);
-    this.add.text(width / 2, this.joystickY + 70, '▼', arrowStyle).setOrigin(0.5).setDepth(51);
-    this.add.text(width / 2 - 70, this.joystickY, '◀', arrowStyle).setOrigin(0.5).setDepth(51);
-    this.add.text(width / 2 + 70, this.joystickY, '▶', arrowStyle).setOrigin(0.5).setDepth(51);
+    // Direction indicators
+    const arrowStyle = { fontSize: '16px', color: '#9A8AB0' };
+    this.add.text(width / 2, joystickY - 55, '▲', arrowStyle).setOrigin(0.5).setDepth(51);
+    this.add.text(width / 2, joystickY + 55, '▼', arrowStyle).setOrigin(0.5).setDepth(51);
+    this.add.text(width / 2 - 55, joystickY, '◀', arrowStyle).setOrigin(0.5).setDepth(51);
+    this.add.text(width / 2 + 55, joystickY, '▶', arrowStyle).setOrigin(0.5).setDepth(51);
     
-    // Touch input for joystick
+    // Touch events
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.y > this.gameAreaHeight) {
+      if (pointer.y > height - 100) {
         this.joystickActive = true;
-        this.updateJoystick(pointer);
+        this.updateJoystick(pointer, width, joystickY);
       }
     });
     
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       if (this.joystickActive) {
-        this.updateJoystick(pointer);
+        this.updateJoystick(pointer, width, joystickY);
       }
     });
     
     this.input.on('pointerup', () => {
       this.joystickActive = false;
-      this.joystickThumb.x = this.joystickBase.x;
-      this.joystickThumb.y = this.joystickBase.y;
-      // Keep last direction for "can't stop moving"
+      if (this.joystickThumb && this.joystickBase) {
+        this.joystickThumb.x = this.joystickBase.x;
+        this.joystickThumb.y = this.joystickBase.y;
+      }
       if (!this.player.cantStopMoving) {
         this.inputDirection = 'none';
       }
     });
   }
 
-  private updateJoystick(pointer: Phaser.Input.Pointer) {
-    const dx = pointer.x - this.joystickBase.x;
-    const dy = pointer.y - this.joystickBase.y;
+  private updateJoystick(pointer: Phaser.Input.Pointer, width: number, joystickY: number) {
+    if (!this.joystickThumb || !this.joystickBase) return;
+    
+    const centerX = width / 2;
+    const dx = pointer.x - centerX;
+    const dy = pointer.y - joystickY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    const maxDist = 40;
+    const maxDist = 35;
     
     if (dist > 0) {
       const clampedDist = Math.min(dist, maxDist);
-      this.joystickThumb.x = this.joystickBase.x + (dx / dist) * clampedDist;
-      this.joystickThumb.y = this.joystickBase.y + (dy / dist) * clampedDist;
+      this.joystickThumb.x = centerX + (dx / dist) * clampedDist;
+      this.joystickThumb.y = joystickY + (dy / dist) * clampedDist;
       
-      // Determine direction (only one at a time for Pacman-style)
-      if (dist > 15) {
+      if (dist > 10) {
         if (Math.abs(dx) > Math.abs(dy)) {
           this.inputDirection = dx > 0 ? 'right' : 'left';
         } else {
@@ -225,7 +219,6 @@ export class GameScene extends Phaser.Scene {
   private placeCollectibles(level: typeof GAME_CONFIG.levels[0]) {
     const positions = this.maze.getRandomPositions(level.collectibleCount + 10);
     
-    // Disease collectibles
     for (let i = 0; i < level.collectibleCount && i < positions.length; i++) {
       const pos = positions[i];
       const dot = this.add.circle(pos.x, pos.y, 5, level.color);
@@ -261,7 +254,6 @@ export class GameScene extends Phaser.Scene {
         const label = this.add.text(pos.x, pos.y, 'O₂', {
           fontSize: '8px',
           color: '#000',
-          fontFamily: 'Arial',
         }).setOrigin(0.5).setDepth(6);
         tank.setData('label', label);
         
@@ -270,27 +262,29 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private createUI(level: typeof GAME_CONFIG.levels[0]) {
+  private createUI(level: typeof GAME_CONFIG.levels[0], width: number) {
+    const fontSize = this.isMobile ? '10px' : '14px';
+    
     // Level title
-    this.add.text(this.cameras.main.width / 2, 10, `Level ${this.gameState.currentLevel + 1}: ${level.emoji} ${level.name}`, {
+    this.add.text(width / 2, 8, `Level ${this.gameState.currentLevel + 1}: ${level.emoji} ${level.name}`, {
       fontFamily: '"Press Start 2P"',
-      fontSize: '10px',
+      fontSize: fontSize,
       color: '#FF6B9D',
     }).setOrigin(0.5, 0).setDepth(100);
     
     // Score
-    this.scoreText = this.add.text(10, 10, `${this.collected}/${this.totalToCollect}`, {
+    this.scoreText = this.add.text(10, 8, `${this.collected}/${this.totalToCollect}`, {
       fontFamily: '"Press Start 2P"',
-      fontSize: '12px',
+      fontSize: fontSize,
       color: '#39FF14',
     }).setDepth(100);
     
     // Oxygen display
     const needsOxygen = level.id === 'covid' || this.gameState.activeDebuffs.includes('covid');
     if (needsOxygen) {
-      this.oxygenText = this.add.text(10, 30, `O₂: 100%`, {
+      this.oxygenText = this.add.text(10, 28, `O₂: 100%`, {
         fontFamily: 'VT323',
-        fontSize: '16px',
+        fontSize: '14px',
         color: '#00D4FF',
       }).setDepth(100);
     }
@@ -301,14 +295,22 @@ export class GameScene extends Phaser.Scene {
         const l = GAME_CONFIG.levels.find(x => x.id === id);
         return l ? l.emoji : '';
       }).join('');
-      this.add.text(this.cameras.main.width - 10, 10, debuffs, {
+      this.add.text(width - 10, 8, debuffs, {
         fontSize: '14px',
+      }).setOrigin(1, 0).setDepth(100);
+    }
+    
+    // Controls hint (desktop only)
+    if (!this.isMobile) {
+      this.add.text(width - 10, 28, 'WASD / Arrows | ESC: Menu', {
+        fontFamily: 'VT323',
+        fontSize: '12px',
+        color: '#9A8AB0',
       }).setOrigin(1, 0).setDepth(100);
     }
   }
 
   private setupDebuffTimers(level: typeof GAME_CONFIG.levels[0]) {
-    // Oxygen drain
     const needsOxygen = level.id === 'covid' || this.gameState.activeDebuffs.includes('covid');
     if (needsOxygen) {
       this.time.addEvent({
@@ -328,7 +330,6 @@ export class GameScene extends Phaser.Scene {
       });
     }
     
-    // Tetanus freeze
     const hasTetanus = level.id === 'tetanus' || this.gameState.activeDebuffs.includes('tetanus');
     if (hasTetanus) {
       this.time.addEvent({
@@ -347,26 +348,16 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     if (this.isGameOver) return;
     
-    // 1. Read keyboard input
     this.readKeyboardInput();
-    
-    // 2. Update player movement (grid-based)
     this.updatePlayerMovement();
     this.player.update(delta);
-    
-    // 3. Update doctor AI (grid-based chase)
     this.updateDoctorAI();
     this.doctor.update(delta);
-    
-    // 4. Check collisions
     this.checkCollisions();
-    
-    // 5. Update player emotion
     this.updateEmotion();
   }
 
   private readKeyboardInput() {
-    // Only read new direction if not frozen
     if (this.player.isFrozen) return;
     
     let newDir: 'up' | 'down' | 'left' | 'right' | 'none' = 'none';
@@ -376,28 +367,22 @@ export class GameScene extends Phaser.Scene {
     else if (this.cursors.left.isDown || this.wasd.A.isDown) newDir = 'left';
     else if (this.cursors.right.isDown || this.wasd.D.isDown) newDir = 'right';
     
-    // Keyboard overrides joystick
     if (newDir !== 'none') {
       this.inputDirection = newDir;
     }
   }
 
   private updatePlayerMovement() {
-    if (this.player.isFrozen) return;
-    
-    // Only process new movement when player reaches tile center
-    if (this.player.isMoving) return;
+    if (this.player.isFrozen || this.player.isMoving) return;
     
     let dir = this.inputDirection;
     
-    // "Can't stop moving" - keep going in last direction
     if (this.player.cantStopMoving && dir === 'none') {
       dir = this.player.direction;
     }
     
     if (dir === 'none') return;
     
-    // Check if we can move in the desired direction
     let nextTileX = this.player.tileX;
     let nextTileY = this.player.tileY;
     
@@ -409,14 +394,11 @@ export class GameScene extends Phaser.Scene {
     }
     
     if (this.maze.isWalkable(nextTileX, nextTileY)) {
-      // Move to next tile
       this.player.direction = dir;
       this.player.setTarget(nextTileX, nextTileY, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
       this.player.tileX = nextTileX;
       this.player.tileY = nextTileY;
     } else if (this.player.cantStopMoving) {
-      // Hit wall - try to turn
-      // Try perpendicular directions
       const perpDirs: ('up' | 'down' | 'left' | 'right')[] = 
         (dir === 'up' || dir === 'down') ? ['left', 'right'] : ['up', 'down'];
       
@@ -441,10 +423,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateDoctorAI() {
-    // Only decide new direction when doctor reaches tile center
     if (this.doctor.isMoving) return;
     
-    // Use pathfinding to find next tile towards player
     const nextTile = this.maze.findNextTileTowards(
       this.doctor.tileX,
       this.doctor.tileY,
@@ -461,7 +441,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private checkCollisions() {
-    // Check collectibles (same tile = collected)
+    // Collectibles
     for (let i = this.collectibles.length - 1; i >= 0; i--) {
       const c = this.collectibles[i];
       if (c.getData('tileX') === this.player.tileX && c.getData('tileY') === this.player.tileY) {
@@ -477,7 +457,6 @@ export class GameScene extends Phaser.Scene {
         });
         this.collectibles.splice(i, 1);
         
-        // Win?
         if (this.collected >= this.totalToCollect) {
           this.endGame(true, `Caught ${GAME_CONFIG.levels[this.gameState.currentLevel].name}!`);
           return;
@@ -485,7 +464,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     
-    // Check oxygen tanks
+    // Oxygen tanks
     for (let i = this.oxygenTanks.length - 1; i >= 0; i--) {
       const tank = this.oxygenTanks[i];
       if (tank.getData('tileX') === this.player.tileX && tank.getData('tileY') === this.player.tileY) {
@@ -497,11 +476,9 @@ export class GameScene extends Phaser.Scene {
       }
     }
     
-    // Check doctor collision (same tile or adjacent = caught)
+    // Doctor collision
     const dx = Math.abs(this.player.tileX - this.doctor.tileX);
     const dy = Math.abs(this.player.tileY - this.doctor.tileY);
-    
-    // Also check pixel distance for smoother collision
     const pdx = this.player.x - this.doctor.x;
     const pdy = this.player.y - this.doctor.y;
     const pixelDist = Math.sqrt(pdx * pdx + pdy * pdy);

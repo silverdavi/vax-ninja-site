@@ -1,7 +1,7 @@
 // Game constants and configuration
 export const GAME_CONFIG = {
-  width: 400,
-  height: 700,
+  width: 800,
+  height: 600,
   tileSize: 24,
   
   // Colors matching the site theme
