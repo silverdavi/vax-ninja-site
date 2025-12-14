@@ -239,13 +239,49 @@ export class Maze {
   }
   
   /**
-   * Get random walkable positions (for placing collectibles)
+   * Get random walkable positions that are REACHABLE from player start
+   * Uses BFS to find only connected tiles (no isolated areas)
    */
   getRandomPositions(count: number): { tileX: number; tileY: number; x: number; y: number }[] {
-    const walkable = this.getWalkableTiles();
-    Phaser.Utils.Array.Shuffle(walkable);
+    // BFS from player start to find all reachable tiles
+    const reachable: { x: number; y: number }[] = [];
+    const visited = new Set<string>();
+    const queue: { x: number; y: number }[] = [{ x: this.playerStartTile.x, y: this.playerStartTile.y }];
+    visited.add(`${this.playerStartTile.x},${this.playerStartTile.y}`);
     
-    return walkable.slice(0, Math.min(count, walkable.length)).map(tile => ({
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      reachable.push(current);
+      
+      // Check 4 directions (no wraparound for collectible placement)
+      const dirs = [
+        { dx: 0, dy: -1 },
+        { dx: 0, dy: 1 },
+        { dx: -1, dy: 0 },
+        { dx: 1, dy: 0 },
+      ];
+      
+      for (const d of dirs) {
+        const nx = current.x + d.dx;
+        const ny = current.y + d.dy;
+        const key = `${nx},${ny}`;
+        
+        if (!visited.has(key) && this.isWalkableRaw(nx, ny)) {
+          visited.add(key);
+          queue.push({ x: nx, y: ny });
+        }
+      }
+    }
+    
+    // Exclude player and doctor start positions
+    const filtered = reachable.filter(t => 
+      !(t.x === this.playerStartTile.x && t.y === this.playerStartTile.y) &&
+      !(t.x === this.doctorStartTile.x && t.y === this.doctorStartTile.y)
+    );
+    
+    Phaser.Utils.Array.Shuffle(filtered);
+    
+    return filtered.slice(0, Math.min(count, filtered.length)).map(tile => ({
       tileX: tile.x,
       tileY: tile.y,
       ...this.getPixelFromTile(tile.x, tile.y),

@@ -142,10 +142,14 @@ export class GameScene extends Phaser.Scene {
     // UI
     this.createUI(level, width);
     
-    // Low O2 overlay (pink screen) - always create, only show when O2 low
-    this.lowO2Overlay = this.add.rectangle(width / 2, height / 2, width * 2, height * 2, 0xff6b9d, 0);
+    // Low O2 overlay (pink/red screen) - always create, only show when O2 low
+    // Use a graphics object for better visibility
+    this.lowO2Overlay = this.add.rectangle(0, 0, width * 3, height * 3, 0xff4466);
+    this.lowO2Overlay.setOrigin(0, 0);
     this.lowO2Overlay.setDepth(200);
-    this.lowO2Overlay.setScrollFactor(0); // Fixed to camera
+    this.lowO2Overlay.setScrollFactor(0);
+    this.lowO2Overlay.setAlpha(0);
+    this.lowO2Overlay.setBlendMode(Phaser.BlendModes.MULTIPLY);
     
     // Debuff timers
     this.setupDebuffTimers(level);
@@ -337,17 +341,17 @@ export class GameScene extends Phaser.Scene {
             this.oxygenText.setColor(this.oxygenLevel > 20 ? '#00D4FF' : '#FF4444');
           }
           
-          // Pink overlay when O2 < 20%
+          // Pink/red overlay when O2 < 20%
           if (this.lowO2Overlay) {
             if (this.oxygenLevel < 20) {
-              // Intensity increases as O2 drops (0% at 20, 50% at 0)
-              const intensity = ((20 - this.oxygenLevel) / 20) * 0.5;
-              this.lowO2Overlay.setAlpha(intensity);
-              this.lowO2Overlay.setVisible(true);
+              // Intensity increases as O2 drops: 0 at 20%, 0.6 at 0%
+              const baseIntensity = ((20 - this.oxygenLevel) / 20) * 0.6;
+              // Add pulsing effect
+              const pulse = Math.sin(Date.now() / 200) * 0.1;
+              this.lowO2Overlay.setAlpha(Math.max(0, baseIntensity + pulse));
               musicManager.setMood('danger');
             } else {
               this.lowO2Overlay.setAlpha(0);
-              this.lowO2Overlay.setVisible(false);
             }
           }
           
