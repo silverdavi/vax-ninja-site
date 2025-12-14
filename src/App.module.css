@@ -98,6 +98,34 @@
   opacity: 0.9;
 }
 
+.playButton {
+  background: linear-gradient(135deg, var(--virus-green), var(--syringe-blue));
+  color: var(--bg);
+  padding: 1.2rem 2.5rem;
+  border: 3px solid var(--virus-green);
+  font-size: 1rem;
+  border-radius: 8px;
+  margin-top: 2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-shadow: none;
+  animation: pulse 1.5s infinite;
+}
+
+.playButton:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px var(--virus-green);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px var(--virus-green);
+  }
+  50% {
+    box-shadow: 0 0 25px var(--virus-green);
+  }
+}
+
 .disclaimer {
   font-family: var(--font-body);
   font-size: 1rem;

@@ -1,15 +1,23 @@
-import styles from './App.module.css'
+import { useState } from 'react';
+import styles from './App.module.css';
+import { GameComponent } from './game/GameComponent';
 
 const LEVELS = [
-  { name: 'COVID-19', emoji: '🦠', debuff: 'Need O₂ packs!' },
-  { name: 'Measles', emoji: '🔴', debuff: 'Vision blur!' },
-  { name: 'Polio', emoji: '🦽', debuff: 'Speed -50%!' },
-  { name: 'Smallpox', emoji: '💀', debuff: 'One-hit KO!' },
-  { name: 'Tetanus', emoji: '🔒', debuff: 'Random freeze!' },
-  { name: 'Whooping Cough', emoji: '😮‍💨', debuff: 'Can\'t stop moving!' },
-]
+  { name: 'COVID-19', emoji: '🦠', debuff: 'Need O₂!' },
+  { name: 'Measles', emoji: '🔴', debuff: 'Blur!' },
+  { name: 'Polio', emoji: '🦽', debuff: 'Slow!' },
+  { name: 'Smallpox', emoji: '💀', debuff: '1-hit KO!' },
+  { name: 'Tetanus', emoji: '🔒', debuff: 'Freeze!' },
+  { name: 'Whooping', emoji: '😮‍💨', debuff: "Can't stop!" },
+];
 
 function App() {
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  if (isPlaying) {
+    return <GameComponent onBack={() => setIsPlaying(false)} />;
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.emojis}>💉 🏃 🦠</div>
@@ -18,9 +26,9 @@ function App() {
       <p className={styles.subtitle}>The Anti-Vaxxer Simulator</p>
       
       <p className={styles.tagline}>
-        Run from the doctor. Catch the disease. 
+        Run from the doctor. Catch diseases!
         <br />
-        Experience the "freedom" of preventable illness!
+        Each disease = permanent debuff!
       </p>
 
       <div className={styles.gamePreview}>
@@ -34,21 +42,19 @@ function App() {
         </div>
       </div>
 
-      <button className={styles.comingSoon}>
-        🎮 COMING SOON 🎮
+      <button className={styles.playButton} onClick={() => setIsPlaying(true)}>
+        🎮 PLAY NOW 🎮
       </button>
 
       <p className={styles.disclaimer}>
-        <strong>⚠️ SATIRE ALERT:</strong> This game is a parody. 
-        Vaccines are safe, effective, and save millions of lives. 
-        Get vaccinated. Don't be a disease ninja.
+        <strong>⚠️ SATIRE:</strong> Vaccines are safe & save lives!
       </p>
 
       <footer className={styles.footer}>
-        A satirical project by <a href="https://dhsilver.me" target="_blank" rel="noopener noreferrer">David Silver</a>
+        <a href="https://dhsilver.me" target="_blank" rel="noopener noreferrer">David Silver</a>
       </footer>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
