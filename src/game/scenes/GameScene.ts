@@ -40,6 +40,7 @@ export class GameScene extends Phaser.Scene {
   private needsOxygen: boolean = false; // Only true AFTER beating COVID
   private hasBlur: boolean = false; // Measles blur effect
   private blurSpots: Phaser.GameObjects.Arc[] = []; // Visual obstruction spots
+  private hasLimp: boolean = false; // Polio limp effect
   
   // UI
   private scoreText!: Phaser.GameObjects.Text;
@@ -74,10 +75,10 @@ export class GameScene extends Phaser.Scene {
     this.hasBlur = this.gameState.activeDebuffs.includes('measles');
     this.blurSpots = [];
     
-    // Apply cumulative debuffs
-    for (const debuff of this.gameState.activeDebuffs) {
-      if (debuff === 'polio') this.speedMultiplier *= 0.7;
-    }
+    // Polio limp - periodic slowdowns instead of constant speed reduction
+    this.hasLimp = this.gameState.activeDebuffs.includes('polio');
+    
+    // No more constant speed reduction for polio - it's now a limp effect
     
     this.isMobile = this.registry.get('isMobile') || false;
   }
@@ -411,6 +412,31 @@ export class GameScene extends Phaser.Scene {
           }
         },
       });
+    }
+    
+    // Polio limp - periodic slowdowns (every 2-4 seconds, slow for 0.5s)
+    if (this.hasLimp) {
+      const triggerLimp = () => {
+        if (this.isGameOver) return;
+        
+        // Start limping - slow down and gray tint
+        this.player.speed = GAME_CONFIG.player.speed * 0.4;
+        this.player.body.setFillStyle(0x9a8ab0);
+        
+        // End limp after 400ms
+        this.time.delayedCall(400, () => {
+          this.player.speed = GAME_CONFIG.player.speed * this.speedMultiplier;
+          if (!this.player.isFrozen) {
+            this.player.body.setFillStyle(0xFFE135);
+          }
+        });
+        
+        // Schedule next limp (random 2-4 seconds)
+        this.time.delayedCall(2000 + Math.random() * 2000, triggerLimp);
+      };
+      
+      // Start first limp after 1-2 seconds
+      this.time.delayedCall(1000 + Math.random() * 1000, triggerLimp);
     }
   }
 
