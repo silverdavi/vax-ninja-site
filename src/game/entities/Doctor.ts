@@ -92,6 +92,22 @@ export class Doctor {
   }
   
   /**
+   * Teleport instantly (for wraparound)
+   */
+  teleportTo(tileX: number, tileY: number, tileSize: number, offsetX: number, offsetY: number): void {
+    this.tileX = tileX;
+    this.tileY = tileY;
+    const px = offsetX + tileX * tileSize + tileSize / 2;
+    const py = offsetY + tileY * tileSize + tileSize / 2;
+    this.body.x = px;
+    this.body.y = py;
+    this.targetX = px;
+    this.targetY = py;
+    this.draw();
+    this.isMoving = false;
+  }
+  
+  /**
    * Draw the cross and syringe at current position
    */
   private draw(): void {

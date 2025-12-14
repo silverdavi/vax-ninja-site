@@ -139,15 +139,28 @@ export class Maze {
   }
   
   /**
-   * Get neighboring walkable tiles
+   * Get neighboring walkable tiles (with wraparound support)
    */
-  getNeighbors(tileX: number, tileY: number): { x: number; y: number; dir: string }[] {
-    const neighbors: { x: number; y: number; dir: string }[] = [];
+  getNeighbors(tileX: number, tileY: number): { x: number; y: number; dir: string; isWrap: boolean }[] {
+    const neighbors: { x: number; y: number; dir: string; isWrap: boolean }[] = [];
     
-    if (this.isWalkable(tileX, tileY - 1)) neighbors.push({ x: tileX, y: tileY - 1, dir: 'up' });
-    if (this.isWalkable(tileX, tileY + 1)) neighbors.push({ x: tileX, y: tileY + 1, dir: 'down' });
-    if (this.isWalkable(tileX - 1, tileY)) neighbors.push({ x: tileX - 1, y: tileY, dir: 'left' });
-    if (this.isWalkable(tileX + 1, tileY)) neighbors.push({ x: tileX + 1, y: tileY, dir: 'right' });
+    const dirs = [
+      { dx: 0, dy: -1, dir: 'up' },
+      { dx: 0, dy: 1, dir: 'down' },
+      { dx: -1, dy: 0, dir: 'left' },
+      { dx: 1, dy: 0, dir: 'right' },
+    ];
+    
+    for (const d of dirs) {
+      const rawX = tileX + d.dx;
+      const rawY = tileY + d.dy;
+      const isWrap = rawX < 0 || rawX >= this.cols || rawY < 0 || rawY >= this.rows;
+      const wrapped = this.wrapTile(rawX, rawY);
+      
+      if (this.isWalkable(wrapped.x, wrapped.y)) {
+        neighbors.push({ x: wrapped.x, y: wrapped.y, dir: d.dir, isWrap });
+      }
+    }
     
     return neighbors;
   }
@@ -156,11 +169,11 @@ export class Maze {
    * Simple pathfinding - returns next tile towards target
    * Uses BFS for shortest path
    */
-  findNextTileTowards(fromX: number, fromY: number, toX: number, toY: number): { x: number; y: number; dir: string } | null {
+  findNextTileTowards(fromX: number, fromY: number, toX: number, toY: number): { x: number; y: number; dir: string; isWrap: boolean } | null {
     if (fromX === toX && fromY === toY) return null;
     
     // BFS
-    const queue: { x: number; y: number; path: { x: number; y: number; dir: string }[] }[] = [];
+    const queue: { x: number; y: number; path: { x: number; y: number; dir: string; isWrap: boolean }[] }[] = [];
     const visited = new Set<string>();
     
     queue.push({ x: fromX, y: fromY, path: [] });
@@ -176,7 +189,7 @@ export class Maze {
         if (visited.has(key)) continue;
         
         visited.add(key);
-        const newPath = [...current.path, { x: neighbor.x, y: neighbor.y, dir: neighbor.dir }];
+        const newPath = [...current.path, { x: neighbor.x, y: neighbor.y, dir: neighbor.dir, isWrap: neighbor.isWrap }];
         
         // Found target?
         if (neighbor.x === toX && neighbor.y === toY) {
@@ -190,7 +203,8 @@ export class Maze {
     // No path found - return a random valid move
     const neighbors = this.getNeighbors(fromX, fromY);
     if (neighbors.length > 0) {
-      return neighbors[Math.floor(Math.random() * neighbors.length)];
+      const n = neighbors[Math.floor(Math.random() * neighbors.length)];
+      return { x: n.x, y: n.y, dir: n.dir, isWrap: n.isWrap };
     }
     
     return null;

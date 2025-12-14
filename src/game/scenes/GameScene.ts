@@ -401,8 +401,10 @@ export class GameScene extends Phaser.Scene {
     
     if (dir === 'none') return;
     
-    let nextTileX = this.player.tileX;
-    let nextTileY = this.player.tileY;
+    const currentTileX = this.player.tileX;
+    const currentTileY = this.player.tileY;
+    let nextTileX = currentTileX;
+    let nextTileY = currentTileY;
     
     switch (dir) {
       case 'up': nextTileY--; break;
@@ -411,6 +413,10 @@ export class GameScene extends Phaser.Scene {
       case 'right': nextTileX++; break;
     }
     
+    // Check if this is a wraparound (going off edge)
+    const isWrapping = nextTileX < 0 || nextTileX >= this.maze.cols || 
+                       nextTileY < 0 || nextTileY >= this.maze.rows;
+    
     // Handle wraparound
     const wrapped = this.maze.wrapTile(nextTileX, nextTileY);
     nextTileX = wrapped.x;
@@ -418,9 +424,16 @@ export class GameScene extends Phaser.Scene {
     
     if (this.maze.isWalkable(nextTileX, nextTileY)) {
       this.player.direction = dir;
-      this.player.setTarget(nextTileX, nextTileY, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
-      this.player.tileX = nextTileX;
-      this.player.tileY = nextTileY;
+      
+      if (isWrapping) {
+        // TELEPORT instantly to other side, continue same direction
+        this.player.teleportTo(nextTileX, nextTileY, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
+      } else {
+        // Normal movement
+        this.player.setTarget(nextTileX, nextTileY, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
+        this.player.tileX = nextTileX;
+        this.player.tileY = nextTileY;
+      }
     } else if (this.player.cantStopMoving) {
       const perpDirs: ('up' | 'down' | 'left' | 'right')[] = 
         (dir === 'up' || dir === 'down') ? ['left', 'right'] : ['up', 'down'];
@@ -458,9 +471,16 @@ export class GameScene extends Phaser.Scene {
     
     if (nextTile) {
       this.doctor.direction = nextTile.dir as 'up' | 'down' | 'left' | 'right';
-      this.doctor.setTarget(nextTile.x, nextTile.y, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
-      this.doctor.tileX = nextTile.x;
-      this.doctor.tileY = nextTile.y;
+      
+      if (nextTile.isWrap) {
+        // Teleport for wraparound
+        this.doctor.teleportTo(nextTile.x, nextTile.y, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
+      } else {
+        // Normal movement
+        this.doctor.setTarget(nextTile.x, nextTile.y, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
+        this.doctor.tileX = nextTile.x;
+        this.doctor.tileY = nextTile.y;
+      }
     }
   }
 
