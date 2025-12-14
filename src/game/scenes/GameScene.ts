@@ -403,57 +403,81 @@ export class GameScene extends Phaser.Scene {
     
     const currentTileX = this.player.tileX;
     const currentTileY = this.player.tileY;
-    let nextTileX = currentTileX;
-    let nextTileY = currentTileY;
+    
+    // Calculate raw next tile (before any wrapping)
+    let rawNextX = currentTileX;
+    let rawNextY = currentTileY;
     
     switch (dir) {
-      case 'up': nextTileY--; break;
-      case 'down': nextTileY++; break;
-      case 'left': nextTileX--; break;
-      case 'right': nextTileX++; break;
+      case 'up': rawNextY--; break;
+      case 'down': rawNextY++; break;
+      case 'left': rawNextX--; break;
+      case 'right': rawNextX++; break;
     }
     
-    // Check if this is a wraparound (going off edge)
-    const isWrapping = nextTileX < 0 || nextTileX >= this.maze.cols || 
-                       nextTileY < 0 || nextTileY >= this.maze.rows;
+    // Check if going off edge (potential wraparound)
+    const goingOffLeft = rawNextX < 0;
+    const goingOffRight = rawNextX >= this.maze.cols;
+    const goingOffTop = rawNextY < 0;
+    const goingOffBottom = rawNextY >= this.maze.rows;
+    const goingOffEdge = goingOffLeft || goingOffRight || goingOffTop || goingOffBottom;
     
-    // Handle wraparound
-    const wrapped = this.maze.wrapTile(nextTileX, nextTileY);
-    nextTileX = wrapped.x;
-    nextTileY = wrapped.y;
-    
-    if (this.maze.isWalkable(nextTileX, nextTileY)) {
-      this.player.direction = dir;
+    if (goingOffEdge) {
+      // Calculate destination on opposite side
+      let destX = rawNextX;
+      let destY = rawNextY;
       
-      if (isWrapping) {
-        // TELEPORT instantly to other side, continue same direction
-        this.player.teleportTo(nextTileX, nextTileY, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
-      } else {
-        // Normal movement
-        this.player.setTarget(nextTileX, nextTileY, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
-        this.player.tileX = nextTileX;
-        this.player.tileY = nextTileY;
+      if (goingOffLeft) destX = this.maze.cols - 1;
+      if (goingOffRight) destX = 0;
+      if (goingOffTop) destY = this.maze.rows - 1;
+      if (goingOffBottom) destY = 0;
+      
+      // Only teleport if destination is walkable
+      if (this.maze.isWalkableRaw(destX, destY)) {
+        this.player.direction = dir;
+        // INSTANT teleport - set position directly
+        this.player.tileX = destX;
+        this.player.tileY = destY;
+        const px = this.maze.offsetX + destX * this.maze.tileSize + this.maze.tileSize / 2;
+        const py = this.maze.offsetY + destY * this.maze.tileSize + this.maze.tileSize / 2;
+        this.player.body.x = px;
+        this.player.body.y = py;
+        this.player.targetX = px;
+        this.player.targetY = py;
+        this.player.isMoving = false;
+        this.player.syncPartsPublic();
       }
-    } else if (this.player.cantStopMoving) {
-      const perpDirs: ('up' | 'down' | 'left' | 'right')[] = 
-        (dir === 'up' || dir === 'down') ? ['left', 'right'] : ['up', 'down'];
-      
-      for (const perpDir of perpDirs) {
-        let px = this.player.tileX;
-        let py = this.player.tileY;
-        if (perpDir === 'up') py--;
-        else if (perpDir === 'down') py++;
-        else if (perpDir === 'left') px--;
-        else if (perpDir === 'right') px++;
+      // If not walkable, do nothing (player stays)
+    } else {
+      // Normal movement within maze bounds
+      if (this.maze.isWalkableRaw(rawNextX, rawNextY)) {
+        this.player.direction = dir;
+        this.player.setTarget(rawNextX, rawNextY, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
+        this.player.tileX = rawNextX;
+        this.player.tileY = rawNextY;
+      } else if (this.player.cantStopMoving) {
+        // Try perpendicular directions
+        const perpDirs: ('up' | 'down' | 'left' | 'right')[] = 
+          (dir === 'up' || dir === 'down') ? ['left', 'right'] : ['up', 'down'];
         
-        const pWrapped = this.maze.wrapTile(px, py);
-        if (this.maze.isWalkable(pWrapped.x, pWrapped.y)) {
-          this.player.direction = perpDir;
-          this.inputDirection = perpDir;
-          this.player.setTarget(pWrapped.x, pWrapped.y, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
-          this.player.tileX = pWrapped.x;
-          this.player.tileY = pWrapped.y;
-          break;
+        for (const perpDir of perpDirs) {
+          let px = currentTileX;
+          let py = currentTileY;
+          if (perpDir === 'up') py--;
+          else if (perpDir === 'down') py++;
+          else if (perpDir === 'left') px--;
+          else if (perpDir === 'right') px++;
+          
+          if (px >= 0 && px < this.maze.cols && py >= 0 && py < this.maze.rows) {
+            if (this.maze.isWalkableRaw(px, py)) {
+              this.player.direction = perpDir;
+              this.inputDirection = perpDir;
+              this.player.setTarget(px, py, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
+              this.player.tileX = px;
+              this.player.tileY = py;
+              break;
+            }
+          }
         }
       }
     }
@@ -473,8 +497,16 @@ export class GameScene extends Phaser.Scene {
       this.doctor.direction = nextTile.dir as 'up' | 'down' | 'left' | 'right';
       
       if (nextTile.isWrap) {
-        // Teleport for wraparound
-        this.doctor.teleportTo(nextTile.x, nextTile.y, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
+        // Instant teleport for wraparound
+        this.doctor.tileX = nextTile.x;
+        this.doctor.tileY = nextTile.y;
+        const px = this.maze.offsetX + nextTile.x * this.maze.tileSize + this.maze.tileSize / 2;
+        const py = this.maze.offsetY + nextTile.y * this.maze.tileSize + this.maze.tileSize / 2;
+        this.doctor.body.x = px;
+        this.doctor.body.y = py;
+        this.doctor.targetX = px;
+        this.doctor.targetY = py;
+        this.doctor.isMoving = false;
       } else {
         // Normal movement
         this.doctor.setTarget(nextTile.x, nextTile.y, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);

@@ -89,6 +89,16 @@ export class Maze {
   }
   
   /**
+   * Check if a tile is walkable (NO wraparound - raw check)
+   */
+  isWalkableRaw(tileX: number, tileY: number): boolean {
+    if (tileX < 0 || tileX >= this.cols || tileY < 0 || tileY >= this.rows) {
+      return false;
+    }
+    return this.grid[tileY][tileX] !== 1;
+  }
+  
+  /**
    * Wrap tile coordinates (for teleportation at edges)
    */
   wrapTile(tileX: number, tileY: number): { x: number; y: number } {
@@ -154,11 +164,25 @@ export class Maze {
     for (const d of dirs) {
       const rawX = tileX + d.dx;
       const rawY = tileY + d.dy;
-      const isWrap = rawX < 0 || rawX >= this.cols || rawY < 0 || rawY >= this.rows;
-      const wrapped = this.wrapTile(rawX, rawY);
+      const goingOffEdge = rawX < 0 || rawX >= this.cols || rawY < 0 || rawY >= this.rows;
       
-      if (this.isWalkable(wrapped.x, wrapped.y)) {
-        neighbors.push({ x: wrapped.x, y: wrapped.y, dir: d.dir, isWrap });
+      if (goingOffEdge) {
+        // Calculate wrapped destination
+        let destX = rawX;
+        let destY = rawY;
+        if (rawX < 0) destX = this.cols - 1;
+        if (rawX >= this.cols) destX = 0;
+        if (rawY < 0) destY = this.rows - 1;
+        if (rawY >= this.rows) destY = 0;
+        
+        if (this.isWalkableRaw(destX, destY)) {
+          neighbors.push({ x: destX, y: destY, dir: d.dir, isWrap: true });
+        }
+      } else {
+        // Normal within-bounds check
+        if (this.isWalkableRaw(rawX, rawY)) {
+          neighbors.push({ x: rawX, y: rawY, dir: d.dir, isWrap: false });
+        }
       }
     }
     

@@ -139,6 +139,13 @@ export class Player {
   }
   
   /**
+   * Public sync for external teleport
+   */
+  syncPartsPublic(): void {
+    this.syncParts();
+  }
+  
+  /**
    * Set the player's emotion (changes face)
    */
   setEmotion(emotion: PlayerEmotion): void {
