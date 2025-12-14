@@ -122,33 +122,39 @@ export const DIFFICULTY_CONFIG = {
     o2DrainPerTick: 0.6,        // 3%/sec → 33 sec to drain (generous)
     o2TankCount: 6,             // More tanks available
     o2RefillAmount: 50,         // Each tank gives more
-    limpIntervalMin: 3000,      // Longer between limps
-    limpIntervalMax: 5000,
-    limpDuration: 300,          // Shorter limp
-    freezeChance: 0.08,         // Less freeze chance
-    blurSpotCount: 8,           // Fewer blur spots
+    limpIntervalMin: 4000,      // Longer between limps
+    limpIntervalMax: 6000,
+    limpDuration: 250,          // Shorter limp
+    freezeChance: 0.04,         // 4% chance every 2s = rare freezes
+    freezeInterval: 2000,       // Check every 2 seconds
+    freezeDuration: 800,        // Shorter freeze
+    blurSpotCount: 6,           // Fewer blur spots
   },
   normal: {
     doctorSpeedMult: 1.0,
     o2DrainPerTick: 0.8,        // 4%/sec → 25 sec to drain
     o2TankCount: 5,
     o2RefillAmount: 40,
-    limpIntervalMin: 2000,
-    limpIntervalMax: 4000,
-    limpDuration: 400,
-    freezeChance: 0.10,
-    blurSpotCount: 10,
+    limpIntervalMin: 3000,
+    limpIntervalMax: 5000,
+    limpDuration: 350,
+    freezeChance: 0.06,         // 6% chance every 2s
+    freezeInterval: 2000,
+    freezeDuration: 1000,
+    blurSpotCount: 8,
   },
   hard: {
     doctorSpeedMult: 1.15,      // Doctor 15% faster
     o2DrainPerTick: 1.0,        // 5%/sec → 20 sec to drain (tight)
     o2TankCount: 4,             // Fewer tanks
     o2RefillAmount: 35,         // Less refill
-    limpIntervalMin: 1500,      // More frequent limps
-    limpIntervalMax: 3000,
-    limpDuration: 500,          // Longer limp
-    freezeChance: 0.14,         // More freeze chance
-    blurSpotCount: 14,          // More blur spots
+    limpIntervalMin: 2000,      // More frequent limps
+    limpIntervalMax: 4000,
+    limpDuration: 450,          // Longer limp
+    freezeChance: 0.08,         // 8% chance every 2s
+    freezeInterval: 2000,
+    freezeDuration: 1200,       // Longer freeze
+    blurSpotCount: 10,          // More blur spots
   },
 };
 

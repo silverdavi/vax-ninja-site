@@ -41,6 +41,8 @@ export class GameScene extends Phaser.Scene {
   private hasBlur: boolean = false; // Measles blur effect
   private blurSpots: Phaser.GameObjects.Arc[] = []; // Visual obstruction spots
   private hasLimp: boolean = false; // Polio limp effect
+  private hasOneHitKO: boolean = false; // Smallpox - instant death on touch
+  private nearMissTimer: number = 0; // Grace period when doctor is close (without smallpox)
   private diffConfig!: typeof DIFFICULTY_CONFIG.normal; // Current difficulty settings
   
   // UI
@@ -78,6 +80,10 @@ export class GameScene extends Phaser.Scene {
     
     // Polio limp - periodic slowdowns instead of constant speed reduction
     this.hasLimp = this.gameState.activeDebuffs.includes('polio');
+    
+    // Smallpox - instant death (no grace period)
+    this.hasOneHitKO = this.gameState.activeDebuffs.includes('smallpox');
+    this.nearMissTimer = 0;
     
     // Load difficulty settings
     const settings = loadSettings();
@@ -403,16 +409,16 @@ export class GameScene extends Phaser.Scene {
       });
     }
     
-    // Tetanus freeze - chance scales with difficulty
+    // Tetanus freeze - much less frequent, scales with difficulty
     const hasTetanus = level.id === 'tetanus' || this.gameState.activeDebuffs.includes('tetanus');
     if (hasTetanus) {
       this.time.addEvent({
-        delay: 1500,
+        delay: this.diffConfig.freezeInterval,
         loop: true,
         callback: () => {
           if (this.isGameOver || this.player.isFrozen) return;
           if (Math.random() < this.diffConfig.freezeChance) {
-            this.player.freeze(1200);
+            this.player.freeze(this.diffConfig.freezeDuration);
           }
         },
       });
@@ -667,16 +673,42 @@ export class GameScene extends Phaser.Scene {
       }
     }
     
-    // Doctor collision
-    const dx = Math.abs(this.player.tileX - this.doctor.tileX);
-    const dy = Math.abs(this.player.tileY - this.doctor.tileY);
+    // Doctor collision with grace period system
     const pdx = this.player.x - this.doctor.x;
     const pdy = this.player.y - this.doctor.y;
     const pixelDist = Math.sqrt(pdx * pdx + pdy * pdy);
     
-    if ((dx === 0 && dy === 0) || pixelDist < 18) {
-      musicManager.playEffect('lose');
-      this.endGame(false, "You've been vaccinated!");
+    const isTouching = pixelDist < 20;
+    
+    if (isTouching) {
+      if (this.hasOneHitKO) {
+        // Smallpox: INSTANT death, no grace period
+        musicManager.playEffect('lose');
+        this.endGame(false, "💀 One-hit KO! Vaccinated!");
+      } else {
+        // Normal: 0.3 second grace period (player can escape)
+        this.nearMissTimer += 16.67; // ~1 frame at 60fps
+        
+        // Flash player red as warning
+        if (Math.floor(this.nearMissTimer / 100) % 2 === 0) {
+          this.player.body.setFillStyle(0xff4444);
+        } else {
+          this.player.body.setFillStyle(0xFFE135);
+        }
+        
+        if (this.nearMissTimer > 300) { // 0.3 seconds of contact = caught
+          musicManager.playEffect('lose');
+          this.endGame(false, "You've been vaccinated!");
+        }
+      }
+    } else {
+      // Not touching - reset timer and color
+      if (this.nearMissTimer > 0) {
+        this.nearMissTimer = 0;
+        if (!this.player.isFrozen) {
+          this.player.body.setFillStyle(0xFFE135);
+        }
+      }
     }
   }
 
