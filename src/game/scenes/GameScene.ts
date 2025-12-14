@@ -38,6 +38,8 @@ export class GameScene extends Phaser.Scene {
   private oxygenLevel: number = 100;
   private speedMultiplier: number = 1;
   private needsOxygen: boolean = false; // Only true AFTER beating COVID
+  private hasBlur: boolean = false; // Measles blur effect
+  private blurSpots: Phaser.GameObjects.Arc[] = []; // Visual obstruction spots
   
   // UI
   private scoreText!: Phaser.GameObjects.Text;
@@ -67,6 +69,10 @@ export class GameScene extends Phaser.Scene {
     // O2 is only needed if you ALREADY HAVE COVID (beat level 1)
     // NOT during level 1 itself
     this.needsOxygen = this.gameState.activeDebuffs.includes('covid');
+    
+    // Measles blur - only AFTER beating measles level
+    this.hasBlur = this.gameState.activeDebuffs.includes('measles');
+    this.blurSpots = [];
     
     // Apply cumulative debuffs
     for (const debuff of this.gameState.activeDebuffs) {
@@ -151,8 +157,38 @@ export class GameScene extends Phaser.Scene {
     this.lowO2Overlay.setAlpha(0);
     this.lowO2Overlay.setBlendMode(Phaser.BlendModes.MULTIPLY);
     
+    // Measles blur effect - red spots that float and obstruct vision
+    if (this.hasBlur) {
+      this.createBlurSpots(width, height);
+    }
+    
     // Debuff timers
     this.setupDebuffTimers(level);
+  }
+  
+  /**
+   * Create floating red spots for measles blur effect
+   */
+  private createBlurSpots(width: number, height: number) {
+    const numSpots = 12; // Number of floating spots
+    
+    for (let i = 0; i < numSpots; i++) {
+      const size = 30 + Math.random() * 60; // Random size 30-90
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      
+      const spot = this.add.circle(x, y, size, 0xff4444, 0.15);
+      spot.setDepth(180);
+      spot.setScrollFactor(0);
+      spot.setBlendMode(Phaser.BlendModes.MULTIPLY);
+      
+      // Store velocity for animation
+      spot.setData('vx', (Math.random() - 0.5) * 0.5);
+      spot.setData('vy', (Math.random() - 0.5) * 0.5);
+      spot.setData('baseAlpha', 0.1 + Math.random() * 0.15);
+      
+      this.blurSpots.push(spot);
+    }
   }
 
   private setupKeyboard() {
@@ -389,6 +425,33 @@ export class GameScene extends Phaser.Scene {
     this.checkCollisions();
     this.updateMusicMood();
     this.updateSpeechBubbles(time, delta);
+    this.updateBlurSpots(time);
+  }
+  
+  /**
+   * Update floating blur spots (measles effect)
+   */
+  private updateBlurSpots(time: number) {
+    if (!this.hasBlur || this.blurSpots.length === 0) return;
+    
+    const { width, height } = this.cameras.main;
+    
+    for (const spot of this.blurSpots) {
+      // Move spot
+      spot.x += spot.getData('vx');
+      spot.y += spot.getData('vy');
+      
+      // Wrap around screen
+      if (spot.x < -50) spot.x = width + 50;
+      if (spot.x > width + 50) spot.x = -50;
+      if (spot.y < -50) spot.y = height + 50;
+      if (spot.y > height + 50) spot.y = -50;
+      
+      // Pulsing alpha
+      const baseAlpha = spot.getData('baseAlpha');
+      const pulse = Math.sin(time / 500 + spot.x) * 0.05;
+      spot.setAlpha(baseAlpha + pulse);
+    }
   }
 
   private readKeyboardInput() {
