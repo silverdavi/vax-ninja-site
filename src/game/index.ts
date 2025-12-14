@@ -4,9 +4,9 @@ import { BootScene } from './scenes/BootScene';
 import { TitleScene } from './scenes/TitleScene';
 import { GameScene } from './scenes/GameScene';
 import { GameOverScene } from './scenes/GameOverScene';
+import { SettingsScene } from './scenes/SettingsScene';
 
 export function createGame(parent: HTMLElement): Phaser.Game {
-  // Detect if mobile
   const isMobile = window.innerWidth < 600 || 'ontouchstart' in window;
   
   const config: Phaser.Types.Core.GameConfig = {
@@ -15,7 +15,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
     height: GAME_CONFIG.height,
     parent,
     backgroundColor: `#${GAME_CONFIG.colors.bg.toString(16).padStart(6, '0')}`,
-    scene: [BootScene, TitleScene, GameScene, GameOverScene],
+    scene: [BootScene, TitleScene, SettingsScene, GameScene, GameOverScene],
     physics: {
       default: 'arcade',
       arcade: {
@@ -40,11 +40,8 @@ export function createGame(parent: HTMLElement): Phaser.Game {
   };
 
   const game = new Phaser.Game(config);
-  
-  // Store mobile flag
   game.registry.set('isMobile', isMobile);
   
-  // Auto-focus canvas
   game.events.on('ready', () => {
     const canvas = parent.querySelector('canvas');
     if (canvas) {

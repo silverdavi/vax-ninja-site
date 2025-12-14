@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config';
+import { musicManager } from '../audio/MusicManager';
 
 export class TitleScene extends Phaser.Scene {
   private isMobile: boolean = false;
@@ -14,7 +15,12 @@ export class TitleScene extends Phaser.Scene {
     
     this.cameras.main.setBackgroundColor(GAME_CONFIG.colors.bg);
     
-    // Animated chase preview
+    // Initialize music on first interaction
+    this.input.once('pointerdown', () => {
+      musicManager.init();
+    });
+    
+    // Chase animation
     this.createChaseAnimation(width);
     
     // Title
@@ -57,7 +63,7 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
     
     // Start button
-    const startBtn = this.add.text(width / 2, height * 0.65, this.isMobile ? 'TAP TO START' : 'CLICK OR PRESS SPACE', {
+    const startBtn = this.add.text(width / 2, height * 0.63, this.isMobile ? 'TAP TO START' : 'START GAME', {
       fontFamily: '"Press Start 2P"',
       fontSize: this.isMobile ? '14px' : '18px',
       color: '#1a0a2e',
@@ -76,28 +82,38 @@ export class TitleScene extends Phaser.Scene {
     });
     
     startBtn.on('pointerdown', () => this.startGame());
-    this.input.on('pointerdown', () => this.startGame());
     this.input.keyboard?.on('keydown-SPACE', () => this.startGame());
+    
+    // Settings button
+    const settingsBtn = this.add.text(width / 2, height * 0.75, '⚙️ SETTINGS', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '12px',
+      color: '#9A8AB0',
+    }).setOrigin(0.5);
+    settingsBtn.setInteractive({ useHandCursor: true });
+    settingsBtn.on('pointerover', () => settingsBtn.setStyle({ color: '#FF6B9D' }));
+    settingsBtn.on('pointerout', () => settingsBtn.setStyle({ color: '#9A8AB0' }));
+    settingsBtn.on('pointerdown', () => this.scene.start('SettingsScene'));
     
     // Controls hint
     const controlsText = this.isMobile 
-      ? '🕹️ Use joystick to move'
-      : '⌨️ WASD or Arrow Keys to move';
+      ? '🕹️ Joystick to move'
+      : '⌨️ WASD / Arrows';
     
-    this.add.text(width / 2, height * 0.78, controlsText, {
+    this.add.text(width / 2, height * 0.83, controlsText, {
       fontFamily: 'VT323',
       fontSize: this.isMobile ? '14px' : '16px',
       color: '#9A8AB0',
     }).setOrigin(0.5);
     
     // Disclaimer
-    this.add.text(width / 2, height - 50, '⚠️ SATIRE: Vaccines save lives!', {
+    this.add.text(width / 2, height - 45, '⚠️ SATIRE: Vaccines save lives!', {
       fontFamily: 'VT323',
       fontSize: '14px',
       color: '#FFE66D',
     }).setOrigin(0.5);
     
-    this.add.text(width / 2, height - 28, 'Get vaccinated!', {
+    this.add.text(width / 2, height - 22, 'Get vaccinated!', {
       fontFamily: 'VT323',
       fontSize: '14px',
       color: '#FFE66D',
@@ -107,13 +123,11 @@ export class TitleScene extends Phaser.Scene {
   private createChaseAnimation(width: number) {
     const y = 50;
     
-    // Smiley
     const smiley = this.add.circle(width / 2 - 30, y, 12, 0xFFE135);
     smiley.setStrokeStyle(2, 0xCC9900);
     this.add.circle(width / 2 - 34, y - 3, 2, 0x000000);
     this.add.circle(width / 2 - 26, y - 3, 2, 0x000000);
     
-    // Doctor
     const doctor = this.add.circle(width / 2 + 30, y, 12, 0xFFFFFF);
     doctor.setStrokeStyle(2, 0x00D4FF);
     
@@ -133,6 +147,7 @@ export class TitleScene extends Phaser.Scene {
   }
 
   private startGame() {
+    musicManager.init();
     this.cameras.main.fade(200, 0, 0, 0);
     this.time.delayedCall(200, () => {
       this.scene.start('GameScene', {

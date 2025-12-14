@@ -76,13 +76,31 @@ export class Maze {
   }
   
   /**
-   * Check if a tile is walkable
+   * Check if a tile is walkable (with wraparound support)
    */
   isWalkable(tileX: number, tileY: number): boolean {
-    if (tileX < 0 || tileX >= this.cols || tileY < 0 || tileY >= this.rows) {
-      return false;
-    }
+    // Handle wraparound - if going off edge, check if opposite side is walkable
+    if (tileX < 0) tileX = this.cols - 1;
+    if (tileX >= this.cols) tileX = 0;
+    if (tileY < 0) tileY = this.rows - 1;
+    if (tileY >= this.rows) tileY = 0;
+    
     return this.grid[tileY][tileX] !== 1;
+  }
+  
+  /**
+   * Wrap tile coordinates (for teleportation at edges)
+   */
+  wrapTile(tileX: number, tileY: number): { x: number; y: number } {
+    let x = tileX;
+    let y = tileY;
+    
+    if (x < 0) x = this.cols - 1;
+    if (x >= this.cols) x = 0;
+    if (y < 0) y = this.rows - 1;
+    if (y >= this.rows) y = 0;
+    
+    return { x, y };
   }
   
   /**

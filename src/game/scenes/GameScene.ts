@@ -2,35 +2,29 @@ import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { Doctor } from '../entities/Doctor';
 import { Maze } from '../entities/Maze';
-import { GAME_CONFIG, MAZES } from '../config';
+import { GAME_CONFIG, MAZES, loadSettings } from '../config';
+import { musicManager } from '../audio/MusicManager';
 
 export interface GameState {
   currentLevel: number;
   activeDebuffs: string[];
 }
 
-/**
- * Main game scene with Pacman-style grid movement
- */
 export class GameScene extends Phaser.Scene {
-  // Entities
   private player!: Player;
   private doctor!: Doctor;
   private maze!: Maze;
   
-  // Collectibles
   private collectibles: Phaser.GameObjects.Arc[] = [];
   private oxygenTanks: Phaser.GameObjects.Arc[] = [];
   
-  // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
   private inputDirection: 'up' | 'down' | 'left' | 'right' | 'none' = 'none';
   
-  // Mobile joystick
+  // Joystick
   private joystickBase?: Phaser.GameObjects.Arc;
   private joystickThumb?: Phaser.GameObjects.Arc;
-  private joystickActive: boolean = false;
   private isMobile: boolean = false;
   
   // Game state
@@ -42,10 +36,12 @@ export class GameScene extends Phaser.Scene {
   // Debuff state
   private oxygenLevel: number = 100;
   private speedMultiplier: number = 1;
+  private needsOxygen: boolean = false; // Only true AFTER beating COVID
   
   // UI
   private scoreText!: Phaser.GameObjects.Text;
   private oxygenText?: Phaser.GameObjects.Text;
+  private lowO2Overlay?: Phaser.GameObjects.Rectangle;
   
   constructor() {
     super({ key: 'GameScene' });
@@ -61,6 +57,10 @@ export class GameScene extends Phaser.Scene {
     this.oxygenTanks = [];
     this.inputDirection = 'none';
     
+    // O2 is only needed if you ALREADY HAVE COVID (beat level 1)
+    // NOT during level 1 itself
+    this.needsOxygen = this.gameState.activeDebuffs.includes('covid');
+    
     // Apply cumulative debuffs
     for (const debuff of this.gameState.activeDebuffs) {
       if (debuff === 'polio') this.speedMultiplier *= 0.7;
@@ -73,17 +73,22 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.cameras.main;
     this.cameras.main.setBackgroundColor(GAME_CONFIG.colors.bg);
     
+    // Initialize and start music
+    musicManager.init();
+    const settings = loadSettings();
+    musicManager.setVolume(settings.musicVolume);
+    musicManager.start();
+    
     const level = GAME_CONFIG.levels[this.gameState.currentLevel];
     const mazeData = MAZES[level.id as keyof typeof MAZES] || MAZES.covid;
     
-    // Calculate game area height (leave room for joystick on mobile)
     const gameAreaHeight = this.isMobile ? height - 100 : height - 40;
     
-    // 1. Build maze
+    // Build maze
     this.maze = new Maze(this, 24);
     this.maze.build(mazeData, GAME_CONFIG.colors.wall, gameAreaHeight);
     
-    // 2. Create player
+    // Create player
     const playerPixel = this.maze.getPixelFromTile(this.maze.playerStartTile.x, this.maze.playerStartTile.y);
     this.player = new Player(this, playerPixel.x, playerPixel.y, this.maze.tileSize);
     this.player.setGridPosition(
@@ -99,7 +104,7 @@ export class GameScene extends Phaser.Scene {
       this.player.cantStopMoving = true;
     }
     
-    // 3. Create doctor
+    // Create doctor with difficulty-adjusted speed
     const doctorPixel = this.maze.getPixelFromTile(this.maze.doctorStartTile.x, this.maze.doctorStartTile.y);
     this.doctor = new Doctor(this, doctorPixel.x, doctorPixel.y);
     this.doctor.setGridPosition(
@@ -109,23 +114,32 @@ export class GameScene extends Phaser.Scene {
       this.maze.offsetX,
       this.maze.offsetY
     );
-    this.doctor.speed = GAME_CONFIG.doctor.speed;
     
-    // 4. Place collectibles
+    // Apply difficulty setting
+    let doctorSpeedMod = 1.0;
+    if (settings.difficulty === 'easy') doctorSpeedMod = 0.9;
+    else if (settings.difficulty === 'hard') doctorSpeedMod = 1.1;
+    this.doctor.speed = GAME_CONFIG.doctor.speed * doctorSpeedMod;
+    
+    // Place collectibles
     this.placeCollectibles(level);
     
-    // 5. Setup input
+    // Setup input
     this.setupKeyboard();
     
-    // 6. Create joystick (mobile only)
+    // Joystick (mobile)
     if (this.isMobile) {
       this.createJoystick(width, height);
     }
     
-    // 7. Create UI
+    // UI
     this.createUI(level, width);
     
-    // 8. Setup debuff timers
+    // Low O2 overlay (pink screen)
+    this.lowO2Overlay = this.add.rectangle(width / 2, height / 2, width, height, 0xff6b9d, 0);
+    this.lowO2Overlay.setDepth(200);
+    
+    // Debuff timers
     this.setupDebuffTimers(level);
   }
 
@@ -139,49 +153,43 @@ export class GameScene extends Phaser.Scene {
     };
     
     this.input.keyboard?.on('keydown-ESC', () => {
+      musicManager.stop();
       this.scene.start('TitleScene');
+    });
+    
+    // M to toggle music
+    this.input.keyboard?.on('keydown-M', () => {
+      musicManager.toggleMute();
     });
   }
 
   private createJoystick(width: number, height: number) {
     const joystickY = height - 50;
     
-    // Joystick background
     this.add.rectangle(width / 2, joystickY, width, 100, 0x1a0a2e, 0.9).setDepth(50);
     
-    // Base
     this.joystickBase = this.add.circle(width / 2, joystickY, 40, 0x3d2b5e);
     this.joystickBase.setStrokeStyle(2, 0x9A8AB0);
     this.joystickBase.setDepth(51);
     
-    // Thumb
     this.joystickThumb = this.add.circle(width / 2, joystickY, 20, 0xFF6B9D);
     this.joystickThumb.setStrokeStyle(2, 0xffffff);
     this.joystickThumb.setDepth(52);
     
-    // Direction indicators
-    const arrowStyle = { fontSize: '16px', color: '#9A8AB0' };
-    this.add.text(width / 2, joystickY - 55, '▲', arrowStyle).setOrigin(0.5).setDepth(51);
-    this.add.text(width / 2, joystickY + 55, '▼', arrowStyle).setOrigin(0.5).setDepth(51);
-    this.add.text(width / 2 - 55, joystickY, '◀', arrowStyle).setOrigin(0.5).setDepth(51);
-    this.add.text(width / 2 + 55, joystickY, '▶', arrowStyle).setOrigin(0.5).setDepth(51);
-    
-    // Touch events
+    // Touch events - FREE MOVING (no center required)
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.y > height - 100) {
-        this.joystickActive = true;
-        this.updateJoystick(pointer, width, joystickY);
+        this.updateJoystickFree(pointer, width, joystickY);
       }
     });
     
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (this.joystickActive) {
-        this.updateJoystick(pointer, width, joystickY);
+      if (pointer.isDown && pointer.y > height - 150) {
+        this.updateJoystickFree(pointer, width, joystickY);
       }
     });
     
     this.input.on('pointerup', () => {
-      this.joystickActive = false;
       if (this.joystickThumb && this.joystickBase) {
         this.joystickThumb.x = this.joystickBase.x;
         this.joystickThumb.y = this.joystickBase.y;
@@ -192,7 +200,8 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private updateJoystick(pointer: Phaser.Input.Pointer, width: number, joystickY: number) {
+  // FREE joystick - direction changes immediately based on position
+  private updateJoystickFree(pointer: Phaser.Input.Pointer, width: number, joystickY: number) {
     if (!this.joystickThumb || !this.joystickBase) return;
     
     const centerX = width / 2;
@@ -201,17 +210,19 @@ export class GameScene extends Phaser.Scene {
     const dist = Math.sqrt(dx * dx + dy * dy);
     const maxDist = 35;
     
+    // Move thumb
+    const clampedDist = Math.min(dist, maxDist);
     if (dist > 0) {
-      const clampedDist = Math.min(dist, maxDist);
       this.joystickThumb.x = centerX + (dx / dist) * clampedDist;
       this.joystickThumb.y = joystickY + (dy / dist) * clampedDist;
-      
-      if (dist > 10) {
-        if (Math.abs(dx) > Math.abs(dy)) {
-          this.inputDirection = dx > 0 ? 'right' : 'left';
-        } else {
-          this.inputDirection = dy > 0 ? 'down' : 'up';
-        }
+    }
+    
+    // Set direction based on angle - FREE moving, no deadzone required
+    if (dist > 8) {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        this.inputDirection = dx > 0 ? 'right' : 'left';
+      } else {
+        this.inputDirection = dy > 0 ? 'down' : 'up';
       }
     }
   }
@@ -240,9 +251,8 @@ export class GameScene extends Phaser.Scene {
     
     this.totalToCollect = this.collectibles.length;
     
-    // Oxygen tanks
-    const needsOxygen = level.id === 'covid' || this.gameState.activeDebuffs.includes('covid');
-    if (needsOxygen) {
+    // Oxygen tanks - only if we ALREADY have COVID
+    if (this.needsOxygen) {
       for (let i = level.collectibleCount; i < level.collectibleCount + 5 && i < positions.length; i++) {
         const pos = positions[i];
         const tank = this.add.circle(pos.x, pos.y, 7, 0x00D4FF);
@@ -265,23 +275,20 @@ export class GameScene extends Phaser.Scene {
   private createUI(level: typeof GAME_CONFIG.levels[0], width: number) {
     const fontSize = this.isMobile ? '10px' : '14px';
     
-    // Level title
     this.add.text(width / 2, 8, `Level ${this.gameState.currentLevel + 1}: ${level.emoji} ${level.name}`, {
       fontFamily: '"Press Start 2P"',
       fontSize: fontSize,
       color: '#FF6B9D',
     }).setOrigin(0.5, 0).setDepth(100);
     
-    // Score
     this.scoreText = this.add.text(10, 8, `${this.collected}/${this.totalToCollect}`, {
       fontFamily: '"Press Start 2P"',
       fontSize: fontSize,
       color: '#39FF14',
     }).setDepth(100);
     
-    // Oxygen display
-    const needsOxygen = level.id === 'covid' || this.gameState.activeDebuffs.includes('covid');
-    if (needsOxygen) {
+    // Oxygen (only if needed)
+    if (this.needsOxygen) {
       this.oxygenText = this.add.text(10, 28, `O₂: 100%`, {
         fontFamily: 'VT323',
         fontSize: '14px',
@@ -289,20 +296,17 @@ export class GameScene extends Phaser.Scene {
       }).setDepth(100);
     }
     
-    // Debuff indicators
+    // Debuff icons
     if (this.gameState.activeDebuffs.length > 0) {
       const debuffs = this.gameState.activeDebuffs.map(id => {
         const l = GAME_CONFIG.levels.find(x => x.id === id);
         return l ? l.emoji : '';
       }).join('');
-      this.add.text(width - 10, 8, debuffs, {
-        fontSize: '14px',
-      }).setOrigin(1, 0).setDepth(100);
+      this.add.text(width - 10, 8, debuffs, { fontSize: '14px' }).setOrigin(1, 0).setDepth(100);
     }
     
-    // Controls hint (desktop only)
     if (!this.isMobile) {
-      this.add.text(width - 10, 28, 'WASD / Arrows | ESC: Menu', {
+      this.add.text(width - 10, 28, 'M: Mute | ESC: Menu', {
         fontFamily: 'VT323',
         fontSize: '12px',
         color: '#9A8AB0',
@@ -311,18 +315,31 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupDebuffTimers(level: typeof GAME_CONFIG.levels[0]) {
-    const needsOxygen = level.id === 'covid' || this.gameState.activeDebuffs.includes('covid');
-    if (needsOxygen) {
+    // Oxygen drain - ONLY if we already have COVID
+    if (this.needsOxygen) {
       this.time.addEvent({
         delay: 200,
         loop: true,
         callback: () => {
           if (this.isGameOver) return;
           this.oxygenLevel -= 1;
+          
           if (this.oxygenText) {
             this.oxygenText.setText(`O₂: ${Math.max(0, Math.round(this.oxygenLevel))}%`);
-            this.oxygenText.setColor(this.oxygenLevel > 30 ? '#00D4FF' : '#FF4444');
+            this.oxygenText.setColor(this.oxygenLevel > 20 ? '#00D4FF' : '#FF4444');
           }
+          
+          // Pink overlay when O2 < 20%
+          if (this.lowO2Overlay) {
+            if (this.oxygenLevel < 20) {
+              const intensity = (20 - this.oxygenLevel) / 20 * 0.4;
+              this.lowO2Overlay.setAlpha(intensity);
+              musicManager.setMood('danger');
+            } else {
+              this.lowO2Overlay.setAlpha(0);
+            }
+          }
+          
           if (this.oxygenLevel <= 0) {
             this.endGame(false, 'Ran out of oxygen!');
           }
@@ -330,6 +347,7 @@ export class GameScene extends Phaser.Scene {
       });
     }
     
+    // Tetanus freeze
     const hasTetanus = level.id === 'tetanus' || this.gameState.activeDebuffs.includes('tetanus');
     if (hasTetanus) {
       this.time.addEvent({
@@ -354,7 +372,7 @@ export class GameScene extends Phaser.Scene {
     this.updateDoctorAI();
     this.doctor.update(delta);
     this.checkCollisions();
-    this.updateEmotion();
+    this.updateMusicMood();
   }
 
   private readKeyboardInput() {
@@ -393,6 +411,11 @@ export class GameScene extends Phaser.Scene {
       case 'right': nextTileX++; break;
     }
     
+    // Handle wraparound
+    const wrapped = this.maze.wrapTile(nextTileX, nextTileY);
+    nextTileX = wrapped.x;
+    nextTileY = wrapped.y;
+    
     if (this.maze.isWalkable(nextTileX, nextTileY)) {
       this.player.direction = dir;
       this.player.setTarget(nextTileX, nextTileY, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
@@ -410,12 +433,13 @@ export class GameScene extends Phaser.Scene {
         else if (perpDir === 'left') px--;
         else if (perpDir === 'right') px++;
         
-        if (this.maze.isWalkable(px, py)) {
+        const pWrapped = this.maze.wrapTile(px, py);
+        if (this.maze.isWalkable(pWrapped.x, pWrapped.y)) {
           this.player.direction = perpDir;
           this.inputDirection = perpDir;
-          this.player.setTarget(px, py, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
-          this.player.tileX = px;
-          this.player.tileY = py;
+          this.player.setTarget(pWrapped.x, pWrapped.y, this.maze.tileSize, this.maze.offsetX, this.maze.offsetY);
+          this.player.tileX = pWrapped.x;
+          this.player.tileY = pWrapped.y;
           break;
         }
       }
@@ -447,6 +471,7 @@ export class GameScene extends Phaser.Scene {
       if (c.getData('tileX') === this.player.tileX && c.getData('tileY') === this.player.tileY) {
         this.collected++;
         this.scoreText.setText(`${this.collected}/${this.totalToCollect}`);
+        musicManager.playEffect('collect');
         
         this.tweens.add({
           targets: c,
@@ -458,6 +483,7 @@ export class GameScene extends Phaser.Scene {
         this.collectibles.splice(i, 1);
         
         if (this.collected >= this.totalToCollect) {
+          musicManager.playEffect('win');
           this.endGame(true, `Caught ${GAME_CONFIG.levels[this.gameState.currentLevel].name}!`);
           return;
         }
@@ -469,6 +495,7 @@ export class GameScene extends Phaser.Scene {
       const tank = this.oxygenTanks[i];
       if (tank.getData('tileX') === this.player.tileX && tank.getData('tileY') === this.player.tileY) {
         this.oxygenLevel = Math.min(100, this.oxygenLevel + 40);
+        musicManager.playEffect('collect');
         const label = tank.getData('label') as Phaser.GameObjects.Text;
         if (label) label.destroy();
         tank.destroy();
@@ -484,29 +511,38 @@ export class GameScene extends Phaser.Scene {
     const pixelDist = Math.sqrt(pdx * pdx + pdy * pdy);
     
     if ((dx === 0 && dy === 0) || pixelDist < 18) {
+      musicManager.playEffect('lose');
       this.endGame(false, "You've been vaccinated!");
     }
   }
 
-  private updateEmotion() {
+  private updateMusicMood() {
     const dx = Math.abs(this.player.tileX - this.doctor.tileX);
     const dy = Math.abs(this.player.tileY - this.doctor.tileY);
     const tileDist = dx + dy;
     
     if (tileDist <= 3) {
       this.player.setEmotion('panicked');
+      musicManager.setMood('danger');
+    } else if (tileDist <= 6) {
+      this.player.setEmotion('worried');
+      musicManager.setMood('tense');
     } else if (this.gameState.activeDebuffs.length > 2) {
       this.player.setEmotion('sick');
+      musicManager.setMood('normal');
     } else if (this.gameState.activeDebuffs.length > 0) {
       this.player.setEmotion('worried');
+      musicManager.setMood('normal');
     } else {
       this.player.setEmotion('happy');
+      musicManager.setMood('normal');
     }
   }
 
   private endGame(won: boolean, message: string) {
     if (this.isGameOver) return;
     this.isGameOver = true;
+    musicManager.stop();
     
     const currentLevelId = GAME_CONFIG.levels[this.gameState.currentLevel].id;
     if (won && !this.gameState.activeDebuffs.includes(currentLevelId)) {
