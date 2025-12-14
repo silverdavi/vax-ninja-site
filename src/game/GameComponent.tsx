@@ -41,10 +41,9 @@ export function GameComponent({ onBack }: GameComponentProps) {
         bottom: 0,
         background: '#1a0a2e',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        touchAction: 'none', // Prevent scrolling on mobile
+        overflow: 'hidden',
       }}
       onClick={focusGame}
     >
@@ -55,28 +54,29 @@ export function GameComponent({ onBack }: GameComponentProps) {
         }}
         style={{
           position: 'absolute',
-          top: '5px',
-          left: '5px',
+          top: '10px',
+          left: '10px',
           zIndex: 1000,
           fontFamily: '"Press Start 2P"',
-          fontSize: '8px',
-          padding: '6px 10px',
+          fontSize: '10px',
+          padding: '8px 12px',
           background: 'rgba(61, 43, 94, 0.9)',
           color: '#9A8AB0',
-          border: '1px solid #9A8AB0',
+          border: '2px solid #9A8AB0',
           borderRadius: '4px',
           cursor: 'pointer',
         }}
       >
-        ✕
+        ✕ EXIT
       </button>
       
       <div
         ref={containerRef}
         style={{
           width: '100%',
-          maxWidth: '500px',
           height: '100%',
+          maxWidth: '100vw',
+          maxHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

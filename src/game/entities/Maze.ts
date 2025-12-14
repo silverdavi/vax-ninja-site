@@ -34,18 +34,22 @@ export class Maze {
     const { width } = this.scene.cameras.main;
     
     // Calculate tile size to fit both width and height
-    const topPadding = 45; // Stats area
-    const availableHeight = areaHeight - topPadding;
-    const availableWidth = width - 20; // Side padding
+    const topPadding = 50; // Stats area
+    const bottomPadding = 10;
+    const sidePadding = 10;
+    const availableHeight = areaHeight - topPadding - bottomPadding;
+    const availableWidth = width - (sidePadding * 2);
     
-    // Find tile size that fits
+    // Find tile size that fits both dimensions
     const tileSizeForHeight = Math.floor(availableHeight / this.rows);
     const tileSizeForWidth = Math.floor(availableWidth / this.cols);
-    this.tileSize = Math.min(tileSizeForHeight, tileSizeForWidth, 28); // Max 28px
+    this.tileSize = Math.min(tileSizeForHeight, tileSizeForWidth);
     
     // Center the maze
-    this.offsetX = (width - this.cols * this.tileSize) / 2;
-    this.offsetY = topPadding + (availableHeight - this.rows * this.tileSize) / 2;
+    const mazeWidth = this.cols * this.tileSize;
+    const mazeHeight = this.rows * this.tileSize;
+    this.offsetX = (width - mazeWidth) / 2;
+    this.offsetY = topPadding + (availableHeight - mazeHeight) / 2;
     
     for (let row = 0; row < this.rows; row++) {
       for (let col = 0; col < this.cols; col++) {
