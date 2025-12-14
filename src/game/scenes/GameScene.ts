@@ -4,6 +4,7 @@ import { Doctor } from '../entities/Doctor';
 import { Maze } from '../entities/Maze';
 import { GAME_CONFIG, MAZES, loadSettings } from '../config';
 import { musicManager } from '../audio/MusicManager';
+import { getRandomTaunt } from '../data/doctorTaunts';
 
 export interface GameState {
   currentLevel: number;
@@ -43,6 +44,10 @@ export class GameScene extends Phaser.Scene {
   private oxygenText?: Phaser.GameObjects.Text;
   private lowO2Overlay?: Phaser.GameObjects.Rectangle;
   
+  // Speech bubbles
+  private speechBubbles: Phaser.GameObjects.Container[] = [];
+  private lastTauntTime: number = 0;
+  
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -56,6 +61,8 @@ export class GameScene extends Phaser.Scene {
     this.collectibles = [];
     this.oxygenTanks = [];
     this.inputDirection = 'none';
+    this.speechBubbles = [];
+    this.lastTauntTime = 0;
     
     // O2 is only needed if you ALREADY HAVE COVID (beat level 1)
     // NOT during level 1 itself
@@ -363,7 +370,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  update(_time: number, delta: number) {
+  update(time: number, delta: number) {
     if (this.isGameOver) return;
     
     this.readKeyboardInput();
@@ -373,6 +380,7 @@ export class GameScene extends Phaser.Scene {
     this.doctor.update(delta);
     this.checkCollisions();
     this.updateMusicMood();
+    this.updateSpeechBubbles(time, delta);
   }
 
   private readKeyboardInput() {
@@ -612,5 +620,82 @@ export class GameScene extends Phaser.Scene {
         total: this.totalToCollect,
       });
     });
+  }
+  
+  /**
+   * Spawn and update speech bubbles from doctor
+   */
+  private updateSpeechBubbles(time: number, delta: number) {
+    // Spawn new taunt every 2-4 seconds
+    if (time - this.lastTauntTime > 2000 + Math.random() * 2000) {
+      this.spawnTaunt();
+      this.lastTauntTime = time;
+    }
+    
+    // Update existing bubbles - float towards player then fall
+    const { height } = this.cameras.main;
+    
+    for (let i = this.speechBubbles.length - 1; i >= 0; i--) {
+      const bubble = this.speechBubbles[i];
+      const age = bubble.getData('age') + delta;
+      bubble.setData('age', age);
+      
+      // Move towards player initially, then fall
+      const targetX = this.player.x;
+      const dx = targetX - bubble.x;
+      
+      // Horizontal drift towards player
+      bubble.x += Math.sign(dx) * Math.min(Math.abs(dx) * 0.02, 1);
+      
+      // Float up initially, then fall after 1 second
+      if (age < 1000) {
+        bubble.y -= 0.5; // Float up
+      } else {
+        bubble.y += (age - 1000) * 0.002; // Accelerate down
+      }
+      
+      // Fade out as it falls
+      const alpha = Math.max(0, 1 - (age / 4000));
+      bubble.setAlpha(alpha);
+      
+      // Remove if off screen or too old
+      if (bubble.y > height + 50 || age > 5000) {
+        bubble.destroy();
+        this.speechBubbles.splice(i, 1);
+      }
+    }
+  }
+  
+  /**
+   * Spawn a taunt bubble from the doctor
+   */
+  private spawnTaunt() {
+    const taunt = getRandomTaunt();
+    
+    // Create bubble container
+    const container = this.add.container(this.doctor.x, this.doctor.y - 20);
+    container.setDepth(150);
+    container.setData('age', 0);
+    
+    // Background bubble
+    const textObj = this.add.text(0, 0, taunt, {
+      fontFamily: 'VT323',
+      fontSize: this.isMobile ? '10px' : '12px',
+      color: '#1a0a2e',
+      backgroundColor: '#ffffff',
+      padding: { x: 6, y: 4 },
+    }).setOrigin(0.5);
+    
+    // Add slight rotation for variety
+    container.setRotation((Math.random() - 0.5) * 0.2);
+    
+    container.add(textObj);
+    this.speechBubbles.push(container);
+    
+    // Limit max bubbles on screen
+    if (this.speechBubbles.length > 5) {
+      const oldest = this.speechBubbles.shift();
+      if (oldest) oldest.destroy();
+    }
   }
 }

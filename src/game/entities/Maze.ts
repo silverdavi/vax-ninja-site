@@ -151,7 +151,7 @@ export class Maze {
   /**
    * Get neighboring walkable tiles (with wraparound support)
    */
-  getNeighbors(tileX: number, tileY: number): { x: number; y: number; dir: string; isWrap: boolean }[] {
+  getNeighbors(tileX: number, tileY: number, allowWrap: boolean = true): { x: number; y: number; dir: string; isWrap: boolean }[] {
     const neighbors: { x: number; y: number; dir: string; isWrap: boolean }[] = [];
     
     const dirs = [
@@ -167,17 +167,20 @@ export class Maze {
       const goingOffEdge = rawX < 0 || rawX >= this.cols || rawY < 0 || rawY >= this.rows;
       
       if (goingOffEdge) {
-        // Calculate wrapped destination
-        let destX = rawX;
-        let destY = rawY;
-        if (rawX < 0) destX = this.cols - 1;
-        if (rawX >= this.cols) destX = 0;
-        if (rawY < 0) destY = this.rows - 1;
-        if (rawY >= this.rows) destY = 0;
-        
-        if (this.isWalkableRaw(destX, destY)) {
-          neighbors.push({ x: destX, y: destY, dir: d.dir, isWrap: true });
+        // Only add wraparound neighbors if allowed
+        if (allowWrap) {
+          let destX = rawX;
+          let destY = rawY;
+          if (rawX < 0) destX = this.cols - 1;
+          if (rawX >= this.cols) destX = 0;
+          if (rawY < 0) destY = this.rows - 1;
+          if (rawY >= this.rows) destY = 0;
+          
+          if (this.isWalkableRaw(destX, destY)) {
+            neighbors.push({ x: destX, y: destY, dir: d.dir, isWrap: true });
+          }
         }
+        // If !allowWrap, skip wraparound neighbors entirely
       } else {
         // Normal within-bounds check
         if (this.isWalkableRaw(rawX, rawY)) {
@@ -192,11 +195,12 @@ export class Maze {
   /**
    * Simple pathfinding - returns next tile towards target
    * Uses BFS for shortest path
+   * @param allowWrap - if false, doctor won't use wraparound tunnels (player advantage!)
    */
-  findNextTileTowards(fromX: number, fromY: number, toX: number, toY: number): { x: number; y: number; dir: string; isWrap: boolean } | null {
+  findNextTileTowards(fromX: number, fromY: number, toX: number, toY: number, allowWrap: boolean = false): { x: number; y: number; dir: string; isWrap: boolean } | null {
     if (fromX === toX && fromY === toY) return null;
     
-    // BFS
+    // BFS - doctor doesn't know about tunnels by default!
     const queue: { x: number; y: number; path: { x: number; y: number; dir: string; isWrap: boolean }[] }[] = [];
     const visited = new Set<string>();
     
@@ -206,8 +210,8 @@ export class Maze {
     while (queue.length > 0) {
       const current = queue.shift()!;
       
-      // Check neighbors
-      const neighbors = this.getNeighbors(current.x, current.y);
+      // Check neighbors - doctor can't use wraparound!
+      const neighbors = this.getNeighbors(current.x, current.y, allowWrap);
       for (const neighbor of neighbors) {
         const key = `${neighbor.x},${neighbor.y}`;
         if (visited.has(key)) continue;
@@ -224,8 +228,8 @@ export class Maze {
       }
     }
     
-    // No path found - return a random valid move
-    const neighbors = this.getNeighbors(fromX, fromY);
+    // No path found - return a random valid move (still no wraparound)
+    const neighbors = this.getNeighbors(fromX, fromY, allowWrap);
     if (neighbors.length > 0) {
       const n = neighbors[Math.floor(Math.random() * neighbors.length)];
       return { x: n.x, y: n.y, dir: n.dir, isWrap: n.isWrap };
