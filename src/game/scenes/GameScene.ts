@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { Doctor } from '../entities/Doctor';
 import { Maze } from '../entities/Maze';
-import { GAME_CONFIG, MAZES, loadSettings } from '../config';
+import { GAME_CONFIG, MAZES, loadSettings, DIFFICULTY_CONFIG } from '../config';
 import { musicManager } from '../audio/MusicManager';
 import { getRandomTaunt } from '../data/doctorTaunts';
 
@@ -41,6 +41,7 @@ export class GameScene extends Phaser.Scene {
   private hasBlur: boolean = false; // Measles blur effect
   private blurSpots: Phaser.GameObjects.Arc[] = []; // Visual obstruction spots
   private hasLimp: boolean = false; // Polio limp effect
+  private diffConfig!: typeof DIFFICULTY_CONFIG.normal; // Current difficulty settings
   
   // UI
   private scoreText!: Phaser.GameObjects.Text;
@@ -78,7 +79,9 @@ export class GameScene extends Phaser.Scene {
     // Polio limp - periodic slowdowns instead of constant speed reduction
     this.hasLimp = this.gameState.activeDebuffs.includes('polio');
     
-    // No more constant speed reduction for polio - it's now a limp effect
+    // Load difficulty settings
+    const settings = loadSettings();
+    this.diffConfig = DIFFICULTY_CONFIG[settings.difficulty];
     
     this.isMobile = this.registry.get('isMobile') || false;
   }
@@ -129,11 +132,8 @@ export class GameScene extends Phaser.Scene {
       this.maze.offsetY
     );
     
-    // Apply difficulty setting
-    let doctorSpeedMod = 1.0;
-    if (settings.difficulty === 'easy') doctorSpeedMod = 0.9;
-    else if (settings.difficulty === 'hard') doctorSpeedMod = 1.1;
-    this.doctor.speed = GAME_CONFIG.doctor.speed * doctorSpeedMod;
+    // Apply difficulty setting to doctor speed
+    this.doctor.speed = GAME_CONFIG.doctor.speed * this.diffConfig.doctorSpeedMult;
     
     // Place collectibles
     this.placeCollectibles(level);
@@ -169,9 +169,10 @@ export class GameScene extends Phaser.Scene {
   
   /**
    * Create floating red spots for measles blur effect
+   * Spot count scales with difficulty
    */
   private createBlurSpots(width: number, height: number) {
-    const numSpots = 12; // Number of floating spots
+    const numSpots = this.diffConfig.blurSpotCount;
     
     for (let i = 0; i < numSpots; i++) {
       const size = 30 + Math.random() * 60; // Random size 30-90
@@ -301,8 +302,10 @@ export class GameScene extends Phaser.Scene {
     this.totalToCollect = this.collectibles.length;
     
     // Oxygen tanks - only if we ALREADY have COVID
+    // Tank count scales with difficulty
     if (this.needsOxygen) {
-      for (let i = level.collectibleCount; i < level.collectibleCount + 5 && i < positions.length; i++) {
+      const tankCount = this.diffConfig.o2TankCount;
+      for (let i = level.collectibleCount; i < level.collectibleCount + tankCount && i < positions.length; i++) {
         const pos = positions[i];
         const tank = this.add.circle(pos.x, pos.y, 7, 0x00D4FF);
         tank.setStrokeStyle(2, 0xffffff);
@@ -365,13 +368,14 @@ export class GameScene extends Phaser.Scene {
 
   private setupDebuffTimers(level: typeof GAME_CONFIG.levels[0]) {
     // Oxygen drain - ONLY if we already have COVID
+    // Drain rate scales with difficulty
     if (this.needsOxygen) {
       this.time.addEvent({
         delay: 200,
         loop: true,
         callback: () => {
           if (this.isGameOver) return;
-          this.oxygenLevel -= 1;
+          this.oxygenLevel -= this.diffConfig.o2DrainPerTick;
           
           if (this.oxygenText) {
             this.oxygenText.setText(`O₂: ${Math.max(0, Math.round(this.oxygenLevel))}%`);
@@ -399,7 +403,7 @@ export class GameScene extends Phaser.Scene {
       });
     }
     
-    // Tetanus freeze
+    // Tetanus freeze - chance scales with difficulty
     const hasTetanus = level.id === 'tetanus' || this.gameState.activeDebuffs.includes('tetanus');
     if (hasTetanus) {
       this.time.addEvent({
@@ -407,15 +411,17 @@ export class GameScene extends Phaser.Scene {
         loop: true,
         callback: () => {
           if (this.isGameOver || this.player.isFrozen) return;
-          if (Math.random() < 0.12) {
+          if (Math.random() < this.diffConfig.freezeChance) {
             this.player.freeze(1200);
           }
         },
       });
     }
     
-    // Polio limp - periodic slowdowns (every 2-4 seconds, slow for 0.5s)
+    // Polio limp - timing scales with difficulty
     if (this.hasLimp) {
+      const { limpIntervalMin, limpIntervalMax, limpDuration } = this.diffConfig;
+      
       const triggerLimp = () => {
         if (this.isGameOver) return;
         
@@ -423,16 +429,17 @@ export class GameScene extends Phaser.Scene {
         this.player.speed = GAME_CONFIG.player.speed * 0.4;
         this.player.body.setFillStyle(0x9a8ab0);
         
-        // End limp after 400ms
-        this.time.delayedCall(400, () => {
+        // End limp after duration
+        this.time.delayedCall(limpDuration, () => {
           this.player.speed = GAME_CONFIG.player.speed * this.speedMultiplier;
           if (!this.player.isFrozen) {
             this.player.body.setFillStyle(0xFFE135);
           }
         });
         
-        // Schedule next limp (random 2-4 seconds)
-        this.time.delayedCall(2000 + Math.random() * 2000, triggerLimp);
+        // Schedule next limp
+        const interval = limpIntervalMin + Math.random() * (limpIntervalMax - limpIntervalMin);
+        this.time.delayedCall(interval, triggerLimp);
       };
       
       // Start first limp after 1-2 seconds
@@ -647,11 +654,11 @@ export class GameScene extends Phaser.Scene {
       }
     }
     
-    // Oxygen tanks
+    // Oxygen tanks - refill amount scales with difficulty
     for (let i = this.oxygenTanks.length - 1; i >= 0; i--) {
       const tank = this.oxygenTanks[i];
       if (tank.getData('tileX') === this.player.tileX && tank.getData('tileY') === this.player.tileY) {
-        this.oxygenLevel = Math.min(100, this.oxygenLevel + 40);
+        this.oxygenLevel = Math.min(100, this.oxygenLevel + this.diffConfig.o2RefillAmount);
         musicManager.playEffect('collect');
         const label = tank.getData('label') as Phaser.GameObjects.Text;
         if (label) label.destroy();

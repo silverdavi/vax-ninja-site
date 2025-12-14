@@ -94,7 +94,7 @@ export const GAME_CONFIG = {
 
 // Game settings (persisted)
 export interface GameSettings {
-  difficulty: 'easy' | 'normal' | 'hard'; // AI speed: -10%, 0%, +10%
+  difficulty: 'easy' | 'normal' | 'hard';
   musicVolume: number; // 0-1
   soundEnabled: boolean;
 }
@@ -103,6 +103,53 @@ export const DEFAULT_SETTINGS: GameSettings = {
   difficulty: 'normal',
   musicVolume: 0.15,
   soundEnabled: true,
+};
+
+/**
+ * Difficulty multipliers - calculated based on level completion time
+ * 
+ * MATH:
+ * - Player: 160 px/s, tile: ~20px → 8 tiles/sec
+ * - Level: ~15 collectibles, ~8 tiles apart avg → 120 tiles to traverse
+ * - Base completion time: 120/8 = 15 seconds (no dodging)
+ * - With dodging/backtracking: 30-45 seconds realistically
+ * 
+ * O2 should last long enough to complete with 1-2 tank pickups
+ */
+export const DIFFICULTY_CONFIG = {
+  easy: {
+    doctorSpeedMult: 0.85,      // Doctor 15% slower
+    o2DrainPerTick: 0.6,        // 3%/sec → 33 sec to drain (generous)
+    o2TankCount: 6,             // More tanks available
+    o2RefillAmount: 50,         // Each tank gives more
+    limpIntervalMin: 3000,      // Longer between limps
+    limpIntervalMax: 5000,
+    limpDuration: 300,          // Shorter limp
+    freezeChance: 0.08,         // Less freeze chance
+    blurSpotCount: 8,           // Fewer blur spots
+  },
+  normal: {
+    doctorSpeedMult: 1.0,
+    o2DrainPerTick: 0.8,        // 4%/sec → 25 sec to drain
+    o2TankCount: 5,
+    o2RefillAmount: 40,
+    limpIntervalMin: 2000,
+    limpIntervalMax: 4000,
+    limpDuration: 400,
+    freezeChance: 0.10,
+    blurSpotCount: 10,
+  },
+  hard: {
+    doctorSpeedMult: 1.15,      // Doctor 15% faster
+    o2DrainPerTick: 1.0,        // 5%/sec → 20 sec to drain (tight)
+    o2TankCount: 4,             // Fewer tanks
+    o2RefillAmount: 35,         // Less refill
+    limpIntervalMin: 1500,      // More frequent limps
+    limpIntervalMax: 3000,
+    limpDuration: 500,          // Longer limp
+    freezeChance: 0.14,         // More freeze chance
+    blurSpotCount: 14,          // More blur spots
+  },
 };
 
 // Load/save settings
