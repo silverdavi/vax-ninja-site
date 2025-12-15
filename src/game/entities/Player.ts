@@ -209,14 +209,32 @@ export class Player {
   
   /**
    * Freeze the player (tetanus effect)
+   * Makes it VERY visible with color change and shake
    */
   freeze(duration: number): void {
     this.isFrozen = true;
-    this.body.setFillStyle(0x9a8ab0);
+    
+    // Turn blue/icy to indicate frozen
+    this.body.setFillStyle(0x4488ff);
+    this.body.setStrokeStyle(3, 0x00ffff);
+    
+    // Quick shake animation on the body
+    const startX = this.body.x;
+    this.scene.tweens.add({
+      targets: this.body,
+      x: { from: startX - 3, to: startX + 3 },
+      duration: 50,
+      repeat: Math.floor(duration / 100),
+      yoyo: true,
+      onUpdate: () => this.syncParts(),
+    });
     
     this.scene.time.delayedCall(duration, () => {
       this.isFrozen = false;
+      this.body.x = startX;
+      this.body.setStrokeStyle(2, 0xCC9900);
       this.body.setFillStyle(this.emotion === 'sick' ? 0x90EE90 : 0xFFE135);
+      this.syncParts();
     });
   }
   

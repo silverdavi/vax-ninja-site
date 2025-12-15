@@ -40,7 +40,8 @@ export class GameScene extends Phaser.Scene {
   private speedMultiplier: number = 1;
   private needsOxygen: boolean = false; // Only true AFTER beating COVID
   private hasBlur: boolean = false; // Measles blur effect
-  private blurSpots: Phaser.GameObjects.Arc[] = []; // Visual obstruction spots
+  private blurFX?: Phaser.FX.Blur; // Camera blur post-FX
+  private blurIntensity: number = 0; // Animated blur strength
   private hasLimp: boolean = false; // Polio limp effect
   private hasOneHitKO: boolean = false; // Smallpox - instant death on touch
   private nearMissTimer: number = 0; // Grace period when doctor is close (without smallpox)
@@ -50,6 +51,8 @@ export class GameScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private oxygenText?: Phaser.GameObjects.Text;
   private lowO2Overlay?: Phaser.GameObjects.Rectangle;
+  private freezeOverlay?: Phaser.GameObjects.Rectangle;
+  private freezeIcon?: Phaser.GameObjects.Text;
   
   // Speech bubbles
   private speechBubbles: Phaser.GameObjects.Container[] = [];
@@ -77,7 +80,8 @@ export class GameScene extends Phaser.Scene {
     
     // Measles blur - only AFTER beating measles level
     this.hasBlur = this.gameState.activeDebuffs.includes('measles');
-    this.blurSpots = [];
+    this.blurFX = undefined;
+    this.blurIntensity = 0;
     
     // Polio limp - periodic slowdowns instead of constant speed reduction
     this.hasLimp = this.gameState.activeDebuffs.includes('polio');
@@ -168,9 +172,30 @@ export class GameScene extends Phaser.Scene {
     this.lowO2Overlay.setAlpha(0);
     this.lowO2Overlay.setBlendMode(Phaser.BlendModes.MULTIPLY);
     
-    // Measles blur effect - red spots that float and obstruct vision
+    // Measles blur effect - actual camera blur filter
     if (this.hasBlur) {
-      this.createBlurSpots(width, height);
+      this.setupBlurEffect();
+    }
+    
+    // Tetanus freeze overlay and icon (hidden by default)
+    const hasTetanus = this.gameState.activeDebuffs.includes('tetanus');
+    if (hasTetanus || GAME_CONFIG.levels[this.gameState.currentLevel].id === 'tetanus') {
+      this.freezeOverlay = this.add.rectangle(0, 0, width * 3, height * 3, 0x4488ff);
+      this.freezeOverlay.setOrigin(0, 0);
+      this.freezeOverlay.setDepth(195);
+      this.freezeOverlay.setScrollFactor(0);
+      this.freezeOverlay.setAlpha(0);
+      
+      this.freezeIcon = this.add.text(width / 2, height / 2 - 50, '🔒 LOCKED UP!', {
+        fontFamily: '"Press Start 2P"',
+        fontSize: '16px',
+        color: '#00FFFF',
+        stroke: '#000000',
+        strokeThickness: 4,
+      }).setOrigin(0.5);
+      this.freezeIcon.setDepth(210);
+      this.freezeIcon.setScrollFactor(0);
+      this.freezeIcon.setAlpha(0);
     }
     
     // Debuff timers
@@ -178,31 +203,22 @@ export class GameScene extends Phaser.Scene {
   }
   
   /**
-   * Create floating red spots for measles blur effect
-   * These should be CLEARLY VISIBLE to obstruct vision
+   * Setup camera blur effect for measles
+   * Uses Phaser's post-FX blur filter for real blurring
    */
-  private createBlurSpots(width: number, height: number) {
-    const numSpots = this.diffConfig.blurSpotCount;
-    
-    for (let i = 0; i < numSpots; i++) {
-      const size = 40 + Math.random() * 80; // Random size 40-120
-      const x = Math.random() * width;
-      const y = Math.random() * height;
-      
-      // Create spot with visible opacity (NOT multiply blend)
-      const spot = this.add.circle(x, y, size, 0xff2222, 0.35);
-      spot.setDepth(180);
-      spot.setScrollFactor(0);
-      // Add stroke for better visibility
-      spot.setStrokeStyle(3, 0xff0000, 0.5);
-      
-      // Store velocity for animation
-      spot.setData('vx', (Math.random() - 0.5) * 0.8);
-      spot.setData('vy', (Math.random() - 0.5) * 0.8);
-      spot.setData('baseAlpha', 0.25 + Math.random() * 0.2); // 0.25-0.45 alpha
-      
-      this.blurSpots.push(spot);
+  private setupBlurEffect() {
+    // Add blur post-FX to the camera
+    // @ts-ignore - postFX exists in Phaser 3.60+
+    if (this.cameras.main.postFX) {
+      // @ts-ignore
+      this.blurFX = this.cameras.main.postFX.addBlur(0, 0, 0, 1);
     }
+    
+    // Also add a red tint overlay to indicate measles visually
+    const { width, height } = this.cameras.main;
+    const tint = this.add.rectangle(width / 2, height / 2, width * 2, height * 2, 0xff4444, 0.08);
+    tint.setScrollFactor(0);
+    tint.setDepth(150);
   }
 
   private setupKeyboard() {
@@ -425,6 +441,18 @@ export class GameScene extends Phaser.Scene {
           if (this.isGameOver || this.player.isFrozen) return;
           if (Math.random() < this.diffConfig.freezeChance) {
             this.player.freeze(this.diffConfig.freezeDuration);
+            
+            // Show freeze overlay and icon
+            if (this.freezeOverlay && this.freezeIcon) {
+              this.freezeOverlay.setAlpha(0.2);
+              this.freezeIcon.setAlpha(1);
+              
+              // Hide after freeze ends
+              this.time.delayedCall(this.diffConfig.freezeDuration, () => {
+                if (this.freezeOverlay) this.freezeOverlay.setAlpha(0);
+                if (this.freezeIcon) this.freezeIcon.setAlpha(0);
+              });
+            }
           }
         },
       });
@@ -474,29 +502,31 @@ export class GameScene extends Phaser.Scene {
   }
   
   /**
-   * Update floating blur spots (measles effect)
+   * Update camera blur effect (measles)
+   * Blur intensity pulses and increases when doctor is near
    */
   private updateBlurSpots(time: number) {
-    if (!this.hasBlur || this.blurSpots.length === 0) return;
+    if (!this.hasBlur || !this.blurFX) return;
     
-    const { width, height } = this.cameras.main;
+    // Calculate distance to doctor for dynamic blur
+    const dist = Phaser.Math.Distance.Between(
+      this.player.x, this.player.y,
+      this.doctor.x, this.doctor.y
+    );
     
-    for (const spot of this.blurSpots) {
-      // Move spot
-      spot.x += spot.getData('vx');
-      spot.y += spot.getData('vy');
-      
-      // Wrap around screen
-      if (spot.x < -50) spot.x = width + 50;
-      if (spot.x > width + 50) spot.x = -50;
-      if (spot.y < -50) spot.y = height + 50;
-      if (spot.y > height + 50) spot.y = -50;
-      
-      // Pulsing alpha
-      const baseAlpha = spot.getData('baseAlpha');
-      const pulse = Math.sin(time / 500 + spot.x) * 0.05;
-      spot.setAlpha(baseAlpha + pulse);
-    }
+    // Base blur that pulses
+    const baseBlur = 1.5;
+    const pulse = Math.sin(time / 800) * 0.5;
+    
+    // More blur when doctor is close (within 150px)
+    const proximityBlur = Math.max(0, (150 - dist) / 50);
+    
+    // Total blur strength (0-4 range)
+    this.blurIntensity = baseBlur + pulse + proximityBlur;
+    
+    // Apply to camera FX
+    // @ts-ignore
+    this.blurFX.strength = Math.max(0.5, Math.min(4, this.blurIntensity));
   }
 
   private readKeyboardInput() {
