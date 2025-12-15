@@ -1,10 +1,7 @@
 /**
- * Leaderboard Service - Handles highscores globally
+ * Leaderboard Service - Global highscores using Upstash Redis
  * 
- * Currently uses localStorage as fallback, can connect to:
- * - Upstash Redis (recommended for serverless)
- * - Supabase
- * - AWS DynamoDB
+ * Uses Upstash REST API for serverless Redis access
  */
 
 export interface LeaderboardEntry {
@@ -17,20 +14,37 @@ export interface LeaderboardEntry {
   country?: string;    // Optional country flag
 }
 
-// Configuration - can be set via environment or runtime
-let API_URL: string | null = null;
-let API_KEY: string | null = null;
+// Upstash Redis configuration
+const UPSTASH_URL = 'https://exact-impala-22357.upstash.io';
+const UPSTASH_TOKEN = 'AVdVAAIncDFmYmQ1MTNlNWYzZWQ0YzFiYjcwY2FiZjBlN2JkNzk5NHAxMjIzNTc';
 
 /**
- * Configure the leaderboard backend
+ * Execute a Redis command via Upstash REST API
  */
-export function configureLeaderboard(url: string, key: string): void {
-  API_URL = url;
-  API_KEY = key;
+async function redis(...args: (string | number)[]): Promise<unknown> {
+  const response = await fetch(`${UPSTASH_URL}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${UPSTASH_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(args),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Redis error: ${response.statusText}`);
+  }
+  
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  
+  return data.result;
 }
 
 /**
- * Submit a score to the leaderboard
+ * Submit a score to the global leaderboard
  */
 export async function submitScore(entry: Omit<LeaderboardEntry, 'timestamp'>): Promise<boolean> {
   const fullEntry: LeaderboardEntry = {
@@ -38,56 +52,60 @@ export async function submitScore(entry: Omit<LeaderboardEntry, 'timestamp'>): P
     timestamp: Date.now(),
   };
   
-  // Try online API first
-  if (API_URL && API_KEY) {
-    try {
-      const response = await fetch(`${API_URL}/scores`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
-        },
-        body: JSON.stringify(fullEntry),
-      });
-      
-      if (response.ok) {
-        // Also save locally as backup
-        saveLocalScore(fullEntry);
-        return true;
-      }
-    } catch (e) {
-      console.warn('Online leaderboard unavailable, using local storage');
-    }
+  try {
+    // Create a unique key for this score entry
+    const scoreKey = `score:${fullEntry.name}:${fullEntry.timestamp}`;
+    
+    // Store the full entry data as JSON
+    await redis('SET', scoreKey, JSON.stringify(fullEntry));
+    
+    // Add to sorted set for ranking (score = level * 100 + diseases collected * 10 + time bonus)
+    // Higher is better
+    const rankScore = fullEntry.level * 1000 + fullEntry.score * 100 + Math.floor(fullEntry.time / 1000);
+    await redis('ZADD', 'leaderboard', rankScore, scoreKey);
+    
+    // Also save locally as backup
+    saveLocalScore(fullEntry);
+    
+    console.log('✅ Score submitted to global leaderboard!');
+    return true;
+  } catch (e) {
+    console.warn('⚠️ Could not submit to global leaderboard, saved locally:', e);
+    saveLocalScore(fullEntry);
+    return false;
   }
-  
-  // Fallback to local storage
-  saveLocalScore(fullEntry);
-  return true;
 }
 
 /**
- * Get top scores from leaderboard
+ * Get top scores from global leaderboard
  */
 export async function getTopScores(limit: number = 10): Promise<LeaderboardEntry[]> {
-  // Try online API first
-  if (API_URL && API_KEY) {
-    try {
-      const response = await fetch(`${API_URL}/scores?limit=${limit}`, {
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-        },
-      });
-      
-      if (response.ok) {
-        return await response.json();
-      }
-    } catch (e) {
-      console.warn('Online leaderboard unavailable, using local storage');
+  try {
+    // Get top score keys from sorted set (highest first)
+    const keys = await redis('ZREVRANGE', 'leaderboard', 0, limit - 1) as string[];
+    
+    if (!keys || keys.length === 0) {
+      return getLocalScores(limit);
     }
+    
+    // Fetch full data for each score
+    const entries: LeaderboardEntry[] = [];
+    for (const key of keys) {
+      try {
+        const data = await redis('GET', key) as string;
+        if (data) {
+          entries.push(JSON.parse(data));
+        }
+      } catch {
+        // Skip invalid entries
+      }
+    }
+    
+    return entries;
+  } catch (e) {
+    console.warn('⚠️ Could not fetch global leaderboard, using local:', e);
+    return getLocalScores(limit);
   }
-  
-  // Fallback to local storage
-  return getLocalScores(limit);
 }
 
 /**
@@ -98,7 +116,14 @@ export async function getPersonalBest(name: string): Promise<LeaderboardEntry | 
   return scores.find(s => s.name.toLowerCase() === name.toLowerCase()) || null;
 }
 
-// === LOCAL STORAGE HELPERS ===
+/**
+ * Check if online leaderboard is available
+ */
+export function isOnlineEnabled(): boolean {
+  return true; // Always try online first
+}
+
+// === LOCAL STORAGE HELPERS (backup/fallback) ===
 
 const LOCAL_KEY = 'vaxninja_leaderboard';
 
@@ -106,10 +131,10 @@ function saveLocalScore(entry: LeaderboardEntry): void {
   const existing = getLocalScores(100);
   existing.push(entry);
   
-  // Sort by score (highest first), then by level, then by time
+  // Sort by level first, then score, then time
   existing.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
     if (b.level !== a.level) return b.level - a.level;
+    if (b.score !== a.score) return b.score - a.score;
     return b.time - a.time;
   });
   
@@ -134,13 +159,6 @@ function getLocalScores(limit: number): LeaderboardEntry[] {
     console.warn('Could not read from localStorage');
   }
   return [];
-}
-
-/**
- * Check if online leaderboard is configured
- */
-export function isOnlineEnabled(): boolean {
-  return !!(API_URL && API_KEY);
 }
 
 /**
