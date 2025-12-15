@@ -10,6 +10,7 @@ export class LeaderboardScene extends Phaser.Scene {
   }
 
   create() {
+    console.log('LeaderboardScene: create() called');
     const { width, height } = this.cameras.main;
     this.isMobile = this.registry.get('isMobile') || false;
     
@@ -49,8 +50,10 @@ export class LeaderboardScene extends Phaser.Scene {
   }
   
   private async loadScores(loadingText: Phaser.GameObjects.Text, width: number, height: number) {
+    console.log('LeaderboardScene: loadScores() called');
     try {
       const scores = await getTopScores(10);
+      console.log('LeaderboardScene: Got scores:', scores);
       loadingText.destroy();
       
       if (scores.length === 0) {

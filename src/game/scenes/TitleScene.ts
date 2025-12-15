@@ -85,25 +85,32 @@ export class TitleScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-SPACE', () => this.startGame());
     
     // Settings and Leaderboard buttons
-    const settingsBtn = this.add.text(width / 2 - 80, height * 0.75, '⚙️ SETTINGS', {
+    const settingsBtn = this.add.text(width / 2 - 90, height * 0.75, '⚙️ SETTINGS', {
       fontFamily: '"Press Start 2P"',
-      fontSize: '10px',
+      fontSize: '12px',
       color: '#9A8AB0',
+      backgroundColor: '#3d2b5e',
+      padding: { x: 8, y: 6 },
     }).setOrigin(0.5);
     settingsBtn.setInteractive({ useHandCursor: true });
     settingsBtn.on('pointerover', () => settingsBtn.setStyle({ color: '#FF6B9D' }));
     settingsBtn.on('pointerout', () => settingsBtn.setStyle({ color: '#9A8AB0' }));
     settingsBtn.on('pointerdown', () => this.scene.start('SettingsScene'));
     
-    const leaderboardBtn = this.add.text(width / 2 + 80, height * 0.75, '🏆 SCORES', {
+    const leaderboardBtn = this.add.text(width / 2 + 90, height * 0.75, '🏆 SCORES', {
       fontFamily: '"Press Start 2P"',
-      fontSize: '10px',
-      color: '#9A8AB0',
+      fontSize: '12px',
+      color: '#FFE66D',
+      backgroundColor: '#3d2b5e',
+      padding: { x: 8, y: 6 },
     }).setOrigin(0.5);
     leaderboardBtn.setInteractive({ useHandCursor: true });
-    leaderboardBtn.on('pointerover', () => leaderboardBtn.setStyle({ color: '#FFE66D' }));
-    leaderboardBtn.on('pointerout', () => leaderboardBtn.setStyle({ color: '#9A8AB0' }));
-    leaderboardBtn.on('pointerdown', () => this.scene.start('LeaderboardScene'));
+    leaderboardBtn.on('pointerover', () => leaderboardBtn.setStyle({ color: '#FFFFFF' }));
+    leaderboardBtn.on('pointerout', () => leaderboardBtn.setStyle({ color: '#FFE66D' }));
+    leaderboardBtn.on('pointerdown', () => {
+      console.log('Opening leaderboard...');
+      this.scene.start('LeaderboardScene');
+    });
     
     // Controls hint
     const controlsText = this.isMobile 
