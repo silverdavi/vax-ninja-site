@@ -9,6 +9,7 @@ import { getRandomTaunt } from '../data/doctorTaunts';
 export interface GameState {
   currentLevel: number;
   activeDebuffs: string[];
+  totalCollected: number; // Total collectibles eaten across all levels
 }
 
 export class GameScene extends Phaser.Scene {
@@ -63,7 +64,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data: { gameState?: GameState }) {
-    this.gameState = data.gameState || { currentLevel: 0, activeDebuffs: [] };
+    this.gameState = data.gameState || { currentLevel: 0, activeDebuffs: [], totalCollected: 0 };
+    // Ensure totalCollected exists (for old saves)
+    if (this.gameState.totalCollected === undefined) {
+      this.gameState.totalCollected = 0;
+    }
     this.collected = 0;
     this.isGameOver = false;
     this.oxygenLevel = 100;
@@ -781,6 +786,8 @@ export class GameScene extends Phaser.Scene {
       this.gameState.activeDebuffs.push(currentLevelId);
     }
     
+    // Add this level's collected to total (will be added in GameOverScene)
+    
     this.cameras.main.flash(300, won ? 57 : 255, won ? 255 : 68, won ? 20 : 68);
     
     const totalTime = Date.now() - this.gameStartTime;
@@ -790,7 +797,7 @@ export class GameScene extends Phaser.Scene {
         won,
         gameState: this.gameState,
         message,
-        collected: this.collected,
+        collected: this.collected, // This level's collected, added to total in GameOverScene
         total: this.totalToCollect,
         totalTime,
       });

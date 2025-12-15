@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { GAME_CONFIG } from '../config';
-import { submitScore, getStoredPlayerName, setStoredPlayerName } from '../services/LeaderboardService';
+import { GAME_CONFIG, loadSettings } from '../config';
+import { submitScore, getStoredPlayerName, setStoredPlayerName, getTopScores } from '../services/LeaderboardService';
 
 interface GameState {
   currentLevel: number;
   activeDebuffs: string[];
+  totalCollected: number; // Total collectibles eaten across all levels
 }
 
 export class GameOverScene extends Phaser.Scene {
@@ -14,17 +15,33 @@ export class GameOverScene extends Phaser.Scene {
   private isMobile: boolean = false;
   private totalTime: number = 0;
   private scoreSubmitted: boolean = false;
+  private finalScore: number = 0;
+  private difficulty: string = 'normal';
   
   constructor() {
     super({ key: 'GameOverScene' });
   }
 
-  init(data: { won: boolean; gameState: GameState; message: string; totalTime?: number }) {
+  init(data: { won: boolean; gameState: GameState; message: string; totalTime?: number; collected?: number }) {
     this.won = data.won;
     this.gameState = data.gameState;
+    this.gameState.totalCollected = this.gameState.totalCollected || 0;
+    // Add current level's collected to total
+    if (data.collected) {
+      this.gameState.totalCollected += data.collected;
+    }
     this.message = data.message;
     this.totalTime = data.totalTime || 0;
     this.scoreSubmitted = false;
+    
+    // Calculate final score with difficulty modifier
+    const settings = loadSettings();
+    this.difficulty = settings.difficulty;
+    let modifier = 1.0;
+    if (settings.difficulty === 'hard') modifier = 1.25;
+    else if (settings.difficulty === 'easy') modifier = 0.75;
+    
+    this.finalScore = Math.floor(this.gameState.totalCollected * modifier);
   }
 
   create() {
@@ -36,6 +53,17 @@ export class GameOverScene extends Phaser.Scene {
     
     const titleSize = this.isMobile ? '16px' : '22px';
     const textSize = this.isMobile ? '14px' : '18px';
+    
+    // Always show score
+    const diffLabel = this.difficulty === 'hard' ? ' (+25%)' : this.difficulty === 'easy' ? ' (-25%)' : '';
+    this.add.text(width / 2, height * 0.95, `SCORE: ${this.finalScore}${diffLabel}`, {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '10px',
+      color: '#FFE66D',
+    }).setOrigin(0.5);
+    
+    // Check if this is a top 10 score
+    this.checkAndSubmitScore();
     
     if (this.won) {
       // === WIN ===
@@ -102,6 +130,7 @@ export class GameOverScene extends Phaser.Scene {
             gameState: {
               currentLevel: nextLevel,
               activeDebuffs: this.gameState.activeDebuffs,
+              totalCollected: this.gameState.totalCollected, // Keep accumulated score
             },
           });
         };
@@ -124,10 +153,7 @@ export class GameOverScene extends Phaser.Scene {
           color: '#FFE66D',
         }).setOrigin(0.5);
         
-        // Submit score to leaderboard
-        this.submitToLeaderboard();
-        
-        const menuBtn = this.add.text(width / 2, height * 0.85, 'VIEW LEADERBOARD', {
+        const menuBtn = this.add.text(width / 2, height * 0.80, 'VIEW LEADERBOARD', {
           fontFamily: '"Press Start 2P"',
           fontSize: '12px',
           color: '#FFE66D',
@@ -190,6 +216,7 @@ export class GameOverScene extends Phaser.Scene {
           gameState: {
             currentLevel: this.gameState.currentLevel,
             activeDebuffs: prevDebuffs,
+            totalCollected: this.gameState.totalCollected, // Keep accumulated score (minus this level)
           },
         });
       };
@@ -209,43 +236,49 @@ export class GameOverScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-M', () => this.scene.start('TitleScene'));
   }
   
-  private async submitToLeaderboard() {
+  private async checkAndSubmitScore() {
     if (this.scoreSubmitted) return;
-    this.scoreSubmitted = true;
     
     const { width, height } = this.cameras.main;
     
-    // Get player name
-    let playerName = getStoredPlayerName();
-    
-    if (!playerName) {
-      // Prompt for name (simple browser prompt for now)
-      playerName = window.prompt('Enter your name for the leaderboard:', 'Anonymous') || 'Anonymous';
-      setStoredPlayerName(playerName);
-    }
-    
-    // Submit score
+    // Check if we qualify for top 10
     try {
-      await submitScore({
-        name: playerName,
-        score: this.gameState.activeDebuffs.length,
-        level: this.gameState.currentLevel + 1,
-        time: this.totalTime,
-        debuffs: [...this.gameState.activeDebuffs],
-      });
+      const topScores = await getTopScores(10);
+      const lowestTop10 = topScores.length < 10 ? 0 : Math.min(...topScores.map(s => s.score));
       
-      this.add.text(width / 2, height * 0.73, `✅ Score saved as "${playerName}"!`, {
-        fontFamily: 'VT323',
-        fontSize: '14px',
-        color: '#39FF14',
-      }).setOrigin(0.5);
+      console.log('Top 10 check:', { finalScore: this.finalScore, lowestTop10, topCount: topScores.length });
       
+      // If we qualify for top 10 (or there are less than 10 scores)
+      if (this.finalScore > lowestTop10 || topScores.length < 10) {
+        this.scoreSubmitted = true;
+        
+        // Prompt for name
+        let playerName = getStoredPlayerName();
+        
+        const promptText = topScores.length < 10 
+          ? `🏆 TOP 10! Enter your name:` 
+          : `🏆 NEW HIGH SCORE! Enter your name:`;
+        
+        playerName = window.prompt(promptText, playerName || 'Anonymous') || 'Anonymous';
+        setStoredPlayerName(playerName);
+        
+        // Submit score
+        await submitScore({
+          name: playerName,
+          score: this.finalScore,
+          level: this.gameState.currentLevel + 1,
+          time: this.totalTime,
+          debuffs: [...this.gameState.activeDebuffs],
+        });
+        
+        this.add.text(width / 2, height * 0.88, `🏆 "${playerName}" added to leaderboard!`, {
+          fontFamily: 'VT323',
+          fontSize: '14px',
+          color: '#39FF14',
+        }).setOrigin(0.5);
+      }
     } catch (e) {
-      this.add.text(width / 2, height * 0.73, '⚠️ Score saved locally', {
-        fontFamily: 'VT323',
-        fontSize: '14px',
-        color: '#FFE66D',
-      }).setOrigin(0.5);
+      console.warn('Could not check leaderboard:', e);
     }
   }
 }
