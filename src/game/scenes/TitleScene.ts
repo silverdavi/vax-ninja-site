@@ -84,16 +84,26 @@ export class TitleScene extends Phaser.Scene {
     startBtn.on('pointerdown', () => this.startGame());
     this.input.keyboard?.on('keydown-SPACE', () => this.startGame());
     
-    // Settings button
-    const settingsBtn = this.add.text(width / 2, height * 0.75, '⚙️ SETTINGS', {
+    // Settings and Leaderboard buttons
+    const settingsBtn = this.add.text(width / 2 - 80, height * 0.75, '⚙️ SETTINGS', {
       fontFamily: '"Press Start 2P"',
-      fontSize: '12px',
+      fontSize: '10px',
       color: '#9A8AB0',
     }).setOrigin(0.5);
     settingsBtn.setInteractive({ useHandCursor: true });
     settingsBtn.on('pointerover', () => settingsBtn.setStyle({ color: '#FF6B9D' }));
     settingsBtn.on('pointerout', () => settingsBtn.setStyle({ color: '#9A8AB0' }));
     settingsBtn.on('pointerdown', () => this.scene.start('SettingsScene'));
+    
+    const leaderboardBtn = this.add.text(width / 2 + 80, height * 0.75, '🏆 SCORES', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '10px',
+      color: '#9A8AB0',
+    }).setOrigin(0.5);
+    leaderboardBtn.setInteractive({ useHandCursor: true });
+    leaderboardBtn.on('pointerover', () => leaderboardBtn.setStyle({ color: '#FFE66D' }));
+    leaderboardBtn.on('pointerout', () => leaderboardBtn.setStyle({ color: '#9A8AB0' }));
+    leaderboardBtn.on('pointerdown', () => this.scene.start('LeaderboardScene'));
     
     // Controls hint
     const controlsText = this.isMobile 

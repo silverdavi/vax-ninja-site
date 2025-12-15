@@ -33,6 +33,7 @@ export class GameScene extends Phaser.Scene {
   private collected: number = 0;
   private totalToCollect: number = 0;
   private isGameOver: boolean = false;
+  private gameStartTime: number = 0; // For leaderboard timing
   
   // Debuff state
   private oxygenLevel: number = 100;
@@ -95,6 +96,9 @@ export class GameScene extends Phaser.Scene {
   create() {
     const { width, height } = this.cameras.main;
     this.cameras.main.setBackgroundColor(GAME_CONFIG.colors.bg);
+    
+    // Track game start time for leaderboard
+    this.gameStartTime = Date.now();
     
     // Initialize and start music
     musicManager.init();
@@ -749,6 +753,8 @@ export class GameScene extends Phaser.Scene {
     
     this.cameras.main.flash(300, won ? 57 : 255, won ? 255 : 68, won ? 20 : 68);
     
+    const totalTime = Date.now() - this.gameStartTime;
+    
     this.time.delayedCall(600, () => {
       this.scene.start('GameOverScene', {
         won,
@@ -756,6 +762,7 @@ export class GameScene extends Phaser.Scene {
         message,
         collected: this.collected,
         total: this.totalToCollect,
+        totalTime,
       });
     });
   }

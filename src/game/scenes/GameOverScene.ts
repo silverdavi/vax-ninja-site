@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config';
+import { submitScore, getStoredPlayerName, setStoredPlayerName } from '../services/LeaderboardService';
 
 interface GameState {
   currentLevel: number;
@@ -11,15 +12,19 @@ export class GameOverScene extends Phaser.Scene {
   private gameState!: GameState;
   private message: string = '';
   private isMobile: boolean = false;
+  private totalTime: number = 0;
+  private scoreSubmitted: boolean = false;
   
   constructor() {
     super({ key: 'GameOverScene' });
   }
 
-  init(data: { won: boolean; gameState: GameState; message: string }) {
+  init(data: { won: boolean; gameState: GameState; message: string; totalTime?: number }) {
     this.won = data.won;
     this.gameState = data.gameState;
     this.message = data.message;
+    this.totalTime = data.totalTime || 0;
+    this.scoreSubmitted = false;
   }
 
   create() {
@@ -106,26 +111,37 @@ export class GameOverScene extends Phaser.Scene {
         this.input.keyboard?.on('keydown-SPACE', goNext);
         
       } else {
-        this.add.text(width / 2, height * 0.6, '🎉 ALL DISEASES COLLECTED! 🎉', {
+        // === GAME COMPLETE - SUBMIT TO LEADERBOARD ===
+        this.add.text(width / 2, height * 0.55, '🎉 ALL DISEASES COLLECTED! 🎉', {
           fontFamily: '"Press Start 2P"',
           fontSize: this.isMobile ? '10px' : '14px',
           color: '#FF6B9D',
         }).setOrigin(0.5);
         
-        this.add.text(width / 2, height * 0.7, "You're a walking biohazard!", {
+        this.add.text(width / 2, height * 0.63, "You're a walking biohazard!", {
           fontFamily: 'VT323',
           fontSize: textSize,
           color: '#FFE66D',
         }).setOrigin(0.5);
         
-        const menuBtn = this.add.text(width / 2, height * 0.82, 'MAIN MENU', {
+        // Submit score to leaderboard
+        this.submitToLeaderboard();
+        
+        const menuBtn = this.add.text(width / 2, height * 0.85, 'VIEW LEADERBOARD', {
           fontFamily: '"Press Start 2P"',
+          fontSize: '12px',
+          color: '#FFE66D',
+          backgroundColor: '#3d2b5e',
+          padding: { x: 12, y: 8 },
+        }).setOrigin(0.5);
+        menuBtn.setInteractive({ useHandCursor: true });
+        menuBtn.on('pointerdown', () => this.scene.start('LeaderboardScene'));
+        
+        this.add.text(width / 2, height * 0.95, 'Press M for menu', {
+          fontFamily: 'VT323',
           fontSize: '12px',
           color: '#9A8AB0',
         }).setOrigin(0.5);
-        menuBtn.setInteractive({ useHandCursor: true });
-        menuBtn.on('pointerdown', () => this.scene.start('TitleScene'));
-        this.input.on('pointerdown', () => this.scene.start('TitleScene'));
       }
       
     } else {
@@ -191,5 +207,45 @@ export class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5);
     
     this.input.keyboard?.on('keydown-M', () => this.scene.start('TitleScene'));
+  }
+  
+  private async submitToLeaderboard() {
+    if (this.scoreSubmitted) return;
+    this.scoreSubmitted = true;
+    
+    const { width, height } = this.cameras.main;
+    
+    // Get player name
+    let playerName = getStoredPlayerName();
+    
+    if (!playerName) {
+      // Prompt for name (simple browser prompt for now)
+      playerName = window.prompt('Enter your name for the leaderboard:', 'Anonymous') || 'Anonymous';
+      setStoredPlayerName(playerName);
+    }
+    
+    // Submit score
+    try {
+      await submitScore({
+        name: playerName,
+        score: this.gameState.activeDebuffs.length,
+        level: this.gameState.currentLevel + 1,
+        time: this.totalTime,
+        debuffs: [...this.gameState.activeDebuffs],
+      });
+      
+      this.add.text(width / 2, height * 0.73, `✅ Score saved as "${playerName}"!`, {
+        fontFamily: 'VT323',
+        fontSize: '14px',
+        color: '#39FF14',
+      }).setOrigin(0.5);
+      
+    } catch (e) {
+      this.add.text(width / 2, height * 0.73, '⚠️ Score saved locally', {
+        fontFamily: 'VT323',
+        fontSize: '14px',
+        color: '#FFE66D',
+      }).setOrigin(0.5);
+    }
   }
 }
