@@ -62,8 +62,10 @@ export class GameOverScene extends Phaser.Scene {
       color: '#FFE66D',
     }).setOrigin(0.5);
     
-    // Check if this is a top 10 score
-    this.checkAndSubmitScore();
+    // Check if this is a top 10 score - delay to ensure screen is visible first
+    this.time.delayedCall(800, () => {
+      this.checkAndSubmitScore();
+    });
     
     if (this.won) {
       // === WIN ===
