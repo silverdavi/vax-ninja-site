@@ -62,13 +62,18 @@ export class GameOverScene extends Phaser.Scene {
       color: '#FFE66D',
     }).setOrigin(0.5);
     
-    // Check if this is a top 10 score - delay to ensure screen is visible first
-    this.time.delayedCall(1500, () => {
-      // Only check if we're still on this scene
-      if (this.scene.isActive('GameOverScene')) {
-        this.checkAndSubmitScore();
-      }
-    });
+    // Check if this is a top 10 score - ONLY on death or final victory
+    // Don't prompt after each level win (that's annoying!)
+    const isLastLevel = this.gameState.currentLevel >= GAME_CONFIG.levels.length - 1;
+    const shouldCheckScore = !this.won || isLastLevel; // Death OR final level complete
+    
+    if (shouldCheckScore) {
+      this.time.delayedCall(1500, () => {
+        if (this.scene.isActive('GameOverScene')) {
+          this.checkAndSubmitScore();
+        }
+      });
+    }
     
     if (this.won) {
       // === WIN ===
