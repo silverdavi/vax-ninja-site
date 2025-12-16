@@ -63,8 +63,11 @@ export class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5);
     
     // Check if this is a top 10 score - delay to ensure screen is visible first
-    this.time.delayedCall(800, () => {
-      this.checkAndSubmitScore();
+    this.time.delayedCall(1500, () => {
+      // Only check if we're still on this scene
+      if (this.scene.isActive('GameOverScene')) {
+        this.checkAndSubmitScore();
+      }
     });
     
     if (this.won) {
@@ -239,13 +242,20 @@ export class GameOverScene extends Phaser.Scene {
   }
   
   private async checkAndSubmitScore() {
+    // Guard: only run if we're still on GameOverScene and haven't submitted
     if (this.scoreSubmitted) return;
+    if (!this.scene.isActive('GameOverScene')) return;
     
     const { width, height } = this.cameras.main;
     
     // Check if we qualify for top 10
     try {
       const topScores = await getTopScores(10);
+      
+      // Double-check we're still on GameOverScene after async call
+      if (!this.scene.isActive('GameOverScene')) return;
+      if (this.scoreSubmitted) return;
+      
       const lowestTop10 = topScores.length < 10 ? 0 : Math.min(...topScores.map(s => s.score));
       
       console.log('Top 10 check:', { finalScore: this.finalScore, lowestTop10, topCount: topScores.length });
@@ -264,20 +274,22 @@ export class GameOverScene extends Phaser.Scene {
         playerName = window.prompt(promptText, playerName || 'Anonymous') || 'Anonymous';
         setStoredPlayerName(playerName);
         
-        // Submit score
-        await submitScore({
-          name: playerName,
-          score: this.finalScore,
-          level: this.gameState.currentLevel + 1,
-          time: this.totalTime,
-          debuffs: [...this.gameState.activeDebuffs],
-        });
-        
-        this.add.text(width / 2, height * 0.88, `🏆 "${playerName}" added to leaderboard!`, {
-          fontFamily: 'VT323',
-          fontSize: '14px',
-          color: '#39FF14',
-        }).setOrigin(0.5);
+        // Submit score (only if still on this scene)
+        if (this.scene.isActive('GameOverScene')) {
+          await submitScore({
+            name: playerName,
+            score: this.finalScore,
+            level: this.gameState.currentLevel + 1,
+            time: this.totalTime,
+            debuffs: [...this.gameState.activeDebuffs],
+          });
+          
+          this.add.text(width / 2, height * 0.88, `🏆 "${playerName}" added to leaderboard!`, {
+            fontFamily: 'VT323',
+            fontSize: '14px',
+            color: '#39FF14',
+          }).setOrigin(0.5);
+        }
       }
     } catch (e) {
       console.warn('Could not check leaderboard:', e);
