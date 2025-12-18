@@ -112,27 +112,32 @@ export class TitleScene extends Phaser.Scene {
       this.scene.start('LeaderboardScene');
     });
     
+    // About button (below settings/scores)
+    const aboutBtn = this.add.text(width / 2, height * 0.82, '📖 ABOUT', {
+      fontFamily: '"Press Start 2P"',
+      fontSize: '10px',
+      color: '#9A8AB0',
+    }).setOrigin(0.5);
+    aboutBtn.setInteractive({ useHandCursor: true });
+    aboutBtn.on('pointerover', () => aboutBtn.setStyle({ color: '#FF6B9D' }));
+    aboutBtn.on('pointerout', () => aboutBtn.setStyle({ color: '#9A8AB0' }));
+    aboutBtn.on('pointerdown', () => this.scene.start('AboutScene'));
+    
     // Controls hint
     const controlsText = this.isMobile 
       ? '🕹️ Joystick to move'
       : '⌨️ WASD / Arrows';
     
-    this.add.text(width / 2, height * 0.83, controlsText, {
+    this.add.text(width / 2, height * 0.88, controlsText, {
       fontFamily: 'VT323',
-      fontSize: this.isMobile ? '14px' : '16px',
+      fontSize: this.isMobile ? '12px' : '14px',
       color: '#9A8AB0',
     }).setOrigin(0.5);
     
     // Disclaimer
-    this.add.text(width / 2, height - 45, '⚠️ SATIRE: Vaccines save lives!', {
+    this.add.text(width / 2, height - 15, '⚠️ SATIRE: Vaccines save lives! Get vaccinated! 💉', {
       fontFamily: 'VT323',
-      fontSize: '14px',
-      color: '#FFE66D',
-    }).setOrigin(0.5);
-    
-    this.add.text(width / 2, height - 22, 'Get vaccinated!', {
-      fontFamily: 'VT323',
-      fontSize: '14px',
+      fontSize: '12px',
       color: '#FFE66D',
     }).setOrigin(0.5);
   }
