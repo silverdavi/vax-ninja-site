@@ -49,6 +49,12 @@ export class GameScene extends Phaser.Scene {
   private nearMissTimer: number = 0; // Grace period when doctor is close (without smallpox)
   private diffConfig!: typeof DIFFICULTY_CONFIG.normal; // Current difficulty settings
   
+  // New debuffs
+  private hasSwollen: boolean = false; // Mumps - bigger hitbox, slower
+  private hasDizzy: boolean = false; // Rubella - controls reversed sometimes
+  private isDizzyReversed: boolean = false; // Current dizzy state
+  private hasFatigue: boolean = false; // Hepatitis - periodic energy crashes
+  
   // UI
   private scoreText!: Phaser.GameObjects.Text;
   private oxygenText?: Phaser.GameObjects.Text;
@@ -99,6 +105,19 @@ export class GameScene extends Phaser.Scene {
     
     // Smallpox - instant death (no grace period)
     this.hasOneHitKO = this.gameState.activeDebuffs.includes('smallpox');
+    
+    // Mumps - swollen, bigger and slower
+    this.hasSwollen = this.gameState.activeDebuffs.includes('mumps');
+    if (this.hasSwollen) {
+      this.speedMultiplier *= 0.85; // 15% slower
+    }
+    
+    // Rubella - dizzy, controls sometimes reversed
+    this.hasDizzy = this.gameState.activeDebuffs.includes('rubella');
+    this.isDizzyReversed = false;
+    
+    // Hepatitis - fatigue, periodic crashes
+    this.hasFatigue = this.gameState.activeDebuffs.includes('hepatitis');
     this.nearMissTimer = 0;
     
     // Load difficulty settings
@@ -133,6 +152,14 @@ export class GameScene extends Phaser.Scene {
     // Create player
     const playerPixel = this.maze.getPixelFromTile(this.maze.playerStartTile.x, this.maze.playerStartTile.y);
     this.player = new Player(this, playerPixel.x, playerPixel.y, this.maze.tileSize);
+    
+    // Mumps swollen effect - make player bigger (puffy cheeks!)
+    if (this.hasSwollen) {
+      this.player.body.setScale(1.5);
+      this.player.body.setFillStyle(0xFFCC99); // Puffy skin tone
+      this.player.body.setStrokeStyle(3, 0xFF6666); // Red/inflamed border
+    }
+    
     this.player.setGridPosition(
       this.maze.playerStartTile.x,
       this.maze.playerStartTile.y,
@@ -499,6 +526,41 @@ export class GameScene extends Phaser.Scene {
       // Start first limp after 1-2 seconds
       this.time.delayedCall(1000 + Math.random() * 1000, triggerLimp);
     }
+    
+    // Rubella dizzy - controls randomly reverse
+    if (this.hasDizzy) {
+      this.time.addEvent({
+        delay: 3000 + Math.random() * 2000, // Every 3-5 seconds
+        loop: true,
+        callback: () => {
+          if (this.isGameOver) return;
+          if (Math.random() < 0.4) { // 40% chance
+            this.isDizzyReversed = true;
+            // Flash screen pink briefly
+            this.cameras.main.flash(200, 255, 105, 180, false);
+            // Reset after 2 seconds
+            this.time.delayedCall(2000, () => {
+              this.isDizzyReversed = false;
+            });
+          }
+        },
+      });
+    }
+    
+    // Hepatitis fatigue - periodic energy crashes
+    if (this.hasFatigue) {
+      this.time.addEvent({
+        delay: 8000 + Math.random() * 4000, // Every 8-12 seconds
+        loop: true,
+        callback: () => {
+          if (this.isGameOver || this.player.isFrozen) return;
+          // Energy crash - freeze player briefly
+          this.player.freeze(1500); // 1.5 second crash
+          // Yellow flash for fatigue
+          this.cameras.main.flash(300, 255, 255, 0, false);
+        },
+      });
+    }
   }
 
   update(time: number, delta: number) {
@@ -562,6 +624,14 @@ export class GameScene extends Phaser.Scene {
     if (this.player.isFrozen || this.player.isMoving) return;
     
     let dir = this.inputDirection;
+    
+    // Rubella dizzy - reverse controls!
+    if (this.isDizzyReversed && dir !== 'none') {
+      const reverseMap: Record<string, 'up' | 'down' | 'left' | 'right'> = {
+        'up': 'down', 'down': 'up', 'left': 'right', 'right': 'left'
+      };
+      dir = reverseMap[dir];
+    }
     
     if (this.player.cantStopMoving && dir === 'none') {
       dir = this.player.direction;
