@@ -49,21 +49,33 @@ export class TitleScene extends Phaser.Scene {
       align: 'center',
     }).setOrigin(0.5);
     
-    // Disease list
-    const diseases = GAME_CONFIG.levels.map(l => `${l.emoji} ${l.name}`);
-    const diseaseText = this.isMobile 
-      ? diseases.slice(0, 3).join('  ') + '\n' + diseases.slice(3).join('  ')
-      : diseases.join('  ');
+    // Disease list - 3 per row grid
+    const diseases = GAME_CONFIG.levels;
+    const rows = [];
+    for (let i = 0; i < diseases.length; i += 3) {
+      rows.push(diseases.slice(i, i + 3));
+    }
     
-    this.add.text(width / 2, height * 0.5, diseaseText, {
-      fontFamily: 'VT323',
-      fontSize: this.isMobile ? '12px' : '16px',
-      color: '#9A8AB0',
-      align: 'center',
-    }).setOrigin(0.5);
+    const gridStartY = height * 0.46;
+    const rowHeight = this.isMobile ? 20 : 24;
+    const colWidth = this.isMobile ? 100 : 130;
+    
+    rows.forEach((row, rowIdx) => {
+      const rowY = gridStartY + rowIdx * rowHeight;
+      const startX = width / 2 - (row.length - 1) * colWidth / 2;
+      
+      row.forEach((disease, colIdx) => {
+        const x = startX + colIdx * colWidth;
+        this.add.text(x, rowY, `${disease.emoji} ${disease.name}`, {
+          fontFamily: 'VT323',
+          fontSize: this.isMobile ? '11px' : '14px',
+          color: `#${disease.color.toString(16).padStart(6, '0')}`,
+        }).setOrigin(0.5);
+      });
+    });
     
     // Start button
-    const startBtn = this.add.text(width / 2, height * 0.63, this.isMobile ? 'TAP TO START' : 'START GAME', {
+    const startBtn = this.add.text(width / 2, height * 0.66, this.isMobile ? 'TAP TO START' : 'START GAME', {
       fontFamily: '"Press Start 2P"',
       fontSize: this.isMobile ? '14px' : '18px',
       color: '#1a0a2e',
