@@ -73,12 +73,9 @@ export class GameScene extends Phaser.Scene {
     if (this.gameState.revivalsUsed === undefined) {
       this.gameState.revivalsUsed = [];
     }
-    // If revived, restore collected count; otherwise start fresh
-    if (data.revived && data.collectedBefore !== undefined) {
-      this.collected = data.collectedBefore;
-    } else {
-      this.collected = 0;
-    }
+    // Always start with 0 collected for this level attempt
+    // (Even on revival - you restart the level fresh, just with revival used up)
+    this.collected = 0;
     this.isGameOver = false;
     this.oxygenLevel = 100;
     this.speedMultiplier = 1;

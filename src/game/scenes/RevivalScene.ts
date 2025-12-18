@@ -165,11 +165,10 @@ export class RevivalScene extends Phaser.Scene {
       this.gameState.revivalsUsed.push(this.gameState.currentLevel);
       
       this.time.delayedCall(2000, () => {
-        // Continue the level
+        // Restart the level fresh (but with revival used up)
         this.scene.start('GameScene', {
           gameState: this.gameState,
           revived: true,
-          collectedBefore: this.collected,
         });
       });
       
