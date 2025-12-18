@@ -46,6 +46,7 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   create() {
+    console.log('[DEBUG] GameOverScene: create() called, won =', this.won);
     const { width, height } = this.cameras.main;
     const level = GAME_CONFIG.levels[this.gameState.currentLevel];
     this.isMobile = this.registry.get('isMobile') || false;

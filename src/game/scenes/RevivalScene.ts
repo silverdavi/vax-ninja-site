@@ -115,6 +115,7 @@ export class RevivalScene extends Phaser.Scene {
         timerText.setText(`${timeLeft}`);
         if (timeLeft <= 3) timerText.setColor('#FF4444');
         if (timeLeft === 0 && !this.answered) {
+          this.answered = true; // Prevent further input
           this.showResult(false, null);
         }
       },
@@ -192,6 +193,7 @@ export class RevivalScene extends Phaser.Scene {
   }
   
   private goToGameOver() {
+    console.log('[DEBUG] RevivalScene: Going to GameOverScene (wrong answer or timeout)');
     this.scene.start('GameOverScene', {
       won: false,
       gameState: this.gameState,
