@@ -322,6 +322,8 @@ export class GameScene extends Phaser.Scene {
   private placeCollectibles(level: typeof GAME_CONFIG.levels[0]) {
     const positions = this.maze.getRandomPositions(level.collectibleCount + 10);
     
+    console.log(`[DEBUG] Level ${level.name}: requested ${level.collectibleCount} collectibles, got ${positions.length} reachable positions`);
+    
     for (let i = 0; i < level.collectibleCount && i < positions.length; i++) {
       const pos = positions[i];
       const dot = this.add.circle(pos.x, pos.y, 5, level.color);
@@ -342,6 +344,7 @@ export class GameScene extends Phaser.Scene {
     }
     
     this.totalToCollect = this.collectibles.length;
+    console.log(`[DEBUG] Actually placed: ${this.totalToCollect} collectibles`);
     
     // Oxygen tanks - only if we ALREADY have COVID
     // Tank count scales with difficulty
