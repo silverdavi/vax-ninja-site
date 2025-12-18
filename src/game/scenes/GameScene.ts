@@ -153,11 +153,11 @@ export class GameScene extends Phaser.Scene {
     const playerPixel = this.maze.getPixelFromTile(this.maze.playerStartTile.x, this.maze.playerStartTile.y);
     this.player = new Player(this, playerPixel.x, playerPixel.y, this.maze.tileSize);
     
-    // Mumps swollen effect - make player bigger (puffy cheeks!)
+    // Mumps swollen effect - visual indicator + larger hitbox (see checkCollisions)
     if (this.hasSwollen) {
-      this.player.body.setScale(1.5);
       this.player.body.setFillStyle(0xFFCC99); // Puffy skin tone
       this.player.body.setStrokeStyle(3, 0xFF6666); // Red/inflamed border
+      // Note: hitbox is 28px instead of 20px (in checkCollisions)
     }
     
     this.player.setGridPosition(
@@ -798,7 +798,9 @@ export class GameScene extends Phaser.Scene {
     const pdy = this.player.y - this.doctor.y;
     const pixelDist = Math.sqrt(pdx * pdx + pdy * pdy);
     
-    const isTouching = pixelDist < 20;
+    // Mumps swollen = bigger hitbox (easier to catch!)
+    const hitboxRadius = this.hasSwollen ? 28 : 20;
+    const isTouching = pixelDist < hitboxRadius;
     
     if (isTouching) {
       if (this.hasOneHitKO) {
