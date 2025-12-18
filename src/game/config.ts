@@ -89,6 +89,33 @@ export const GAME_CONFIG = {
       color: 0x00d4ff,
       collectibleCount: 14,
     },
+    {
+      id: 'mumps',
+      name: 'Mumps',
+      emoji: '🐹',
+      debuff: 'Swollen!',
+      debuffDesc: 'Player moves slower and is bigger (easier to catch)',
+      color: 0xffa500,
+      collectibleCount: 16,
+    },
+    {
+      id: 'rubella',
+      name: 'Rubella',
+      emoji: '🌸',
+      debuff: 'Dizzy!',
+      debuffDesc: 'Controls are sometimes reversed',
+      color: 0xff69b4,
+      collectibleCount: 18,
+    },
+    {
+      id: 'hepatitis',
+      name: 'Hepatitis B',
+      emoji: '🟡',
+      debuff: 'Fatigue!',
+      debuffDesc: 'Periodic energy crashes - stop for 2 seconds',
+      color: 0xffff00,
+      collectibleCount: 20,
+    },
   ],
 };
 
@@ -179,12 +206,12 @@ export function saveSettings(settings: GameSettings): void {
   }
 }
 
-// Maze templates with WRAPAROUND TUNNELS at corners
+// Maze templates with SIDE TUNNELS for wraparound
 // 0 = path, 1 = wall, 2 = player start, 3 = doctor start
-// Corners (0,0), (0,24), (18,0), (18,24) are open for wraparound
+// Corners are now WALLS (no diagonal wraparound)
 export const MAZES = {
   covid: [
-    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,3,1],
     [1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -202,10 +229,10 @@ export const MAZES = {
     [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
     [1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
-    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   ],
   measles: [
-    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3,1],
     [1,0,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,0,1],
     [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
@@ -223,10 +250,10 @@ export const MAZES = {
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
     [1,0,1,0,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,1,0,1,0,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   ],
   polio: [
-    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,1],
     [1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
     [1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
@@ -244,7 +271,7 @@ export const MAZES = {
     [1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,1],
     [1,0,1,1,1,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   ],
 };
 
@@ -252,3 +279,6 @@ export const MAZES = {
 (MAZES as Record<string, number[][]>).smallpox = MAZES.covid;
 (MAZES as Record<string, number[][]>).tetanus = MAZES.measles;
 (MAZES as Record<string, number[][]>).whooping = MAZES.polio;
+(MAZES as Record<string, number[][]>).mumps = MAZES.covid;
+(MAZES as Record<string, number[][]>).rubella = MAZES.measles;
+(MAZES as Record<string, number[][]>).hepatitis = MAZES.polio;

@@ -6,6 +6,7 @@ interface GameState {
   currentLevel: number;
   activeDebuffs: string[];
   totalCollected: number; // Total collectibles eaten across all levels
+  revivalsUsed: number[]; // Levels where revival was already used
 }
 
 export class GameOverScene extends Phaser.Scene {
@@ -140,7 +141,8 @@ export class GameOverScene extends Phaser.Scene {
             gameState: {
               currentLevel: nextLevel,
               activeDebuffs: this.gameState.activeDebuffs,
-              totalCollected: this.gameState.totalCollected, // Keep accumulated score
+              totalCollected: this.gameState.totalCollected,
+              revivalsUsed: this.gameState.revivalsUsed || [],
             },
           });
         };
@@ -226,7 +228,8 @@ export class GameOverScene extends Phaser.Scene {
           gameState: {
             currentLevel: this.gameState.currentLevel,
             activeDebuffs: prevDebuffs,
-            totalCollected: this.gameState.totalCollected, // Keep accumulated score (minus this level)
+            totalCollected: this.gameState.totalCollected,
+            revivalsUsed: this.gameState.revivalsUsed || [],
           },
         });
       };

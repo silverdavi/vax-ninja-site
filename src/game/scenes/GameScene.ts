@@ -10,6 +10,7 @@ export interface GameState {
   currentLevel: number;
   activeDebuffs: string[];
   totalCollected: number; // Total collectibles eaten across all levels
+  revivalsUsed: number[]; // Levels where revival was already used
 }
 
 export class GameScene extends Phaser.Scene {
@@ -63,13 +64,21 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
-  init(data: { gameState?: GameState }) {
-    this.gameState = data.gameState || { currentLevel: 0, activeDebuffs: [], totalCollected: 0 };
-    // Ensure totalCollected exists (for old saves)
+  init(data: { gameState?: GameState; revived?: boolean; collectedBefore?: number }) {
+    this.gameState = data.gameState || { currentLevel: 0, activeDebuffs: [], totalCollected: 0, revivalsUsed: [] };
+    // Ensure fields exist (for old saves)
     if (this.gameState.totalCollected === undefined) {
       this.gameState.totalCollected = 0;
     }
-    this.collected = 0;
+    if (this.gameState.revivalsUsed === undefined) {
+      this.gameState.revivalsUsed = [];
+    }
+    // If revived, restore collected count; otherwise start fresh
+    if (data.revived && data.collectedBefore !== undefined) {
+      this.collected = data.collectedBefore;
+    } else {
+      this.collected = 0;
+    }
     this.isGameOver = false;
     this.oxygenLevel = 100;
     this.speedMultiplier = 1;
@@ -786,21 +795,33 @@ export class GameScene extends Phaser.Scene {
       this.gameState.activeDebuffs.push(currentLevelId);
     }
     
-    // Add this level's collected to total (will be added in GameOverScene)
+    const totalTime = Date.now() - this.gameStartTime;
+    
+    // Check if revival is available (not won, and revival not used for this level)
+    const revivalAvailable = !won && 
+      !this.gameState.revivalsUsed.includes(this.gameState.currentLevel);
     
     this.cameras.main.flash(300, won ? 57 : 255, won ? 255 : 68, won ? 20 : 68);
     
-    const totalTime = Date.now() - this.gameStartTime;
-    
     this.time.delayedCall(600, () => {
-      this.scene.start('GameOverScene', {
-        won,
-        gameState: this.gameState,
-        message,
-        collected: this.collected, // This level's collected, added to total in GameOverScene
-        total: this.totalToCollect,
-        totalTime,
-      });
+      if (revivalAvailable) {
+        // Offer revival quiz!
+        this.scene.start('RevivalScene', {
+          gameState: this.gameState,
+          collected: this.collected,
+          totalTime,
+        });
+      } else {
+        // No revival - go to game over
+        this.scene.start('GameOverScene', {
+          won,
+          gameState: this.gameState,
+          message,
+          collected: this.collected,
+          total: this.totalToCollect,
+          totalTime,
+        });
+      }
     });
   }
   
