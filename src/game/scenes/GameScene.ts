@@ -895,10 +895,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private checkCollisions() {
-    // Collectibles
+    // Collectibles - use pixel distance since they're moving between tiles
+    const collectRadius = this.maze.tileSize * 0.6; // Pickup radius
     for (let i = this.collectibles.length - 1; i >= 0; i--) {
       const c = this.collectibles[i];
-      if (c.getData('tileX') === this.player.tileX && c.getData('tileY') === this.player.tileY) {
+      const dx = c.x - this.player.x;
+      const dy = c.y - this.player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < collectRadius) {
         this.collected++;
         this.scoreText.setText(`${this.collected}/${this.totalToCollect}`);
         musicManager.playEffect('collect');
