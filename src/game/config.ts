@@ -146,7 +146,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
 export const DIFFICULTY_CONFIG = {
   easy: {
     doctorSpeedMult: 0.85,      // Doctor 15% slower
-    o2DrainPerTick: 0.6,        // 3%/sec → 33 sec to drain (generous)
+    o2DrainPerTick: 0.66,       // ~3.3%/sec → 30 sec to drain
     o2TankCount: 6,             // More tanks available
     o2RefillAmount: 50,         // Each tank gives more
     limpIntervalMin: 4000,      // Longer between limps
@@ -159,7 +159,7 @@ export const DIFFICULTY_CONFIG = {
   },
   normal: {
     doctorSpeedMult: 1.0,
-    o2DrainPerTick: 0.8,        // 4%/sec → 25 sec to drain
+    o2DrainPerTick: 0.88,       // ~4.4%/sec → 23 sec to drain
     o2TankCount: 5,
     o2RefillAmount: 40,
     limpIntervalMin: 3000,
@@ -172,7 +172,7 @@ export const DIFFICULTY_CONFIG = {
   },
   hard: {
     doctorSpeedMult: 1.15,      // Doctor 15% faster
-    o2DrainPerTick: 1.0,        // 5%/sec → 20 sec to drain (tight)
+    o2DrainPerTick: 1.1,        // ~5.5%/sec → 18 sec to drain
     o2TankCount: 4,             // Fewer tanks
     o2RefillAmount: 35,         // Less refill
     limpIntervalMin: 2000,      // More frequent limps
