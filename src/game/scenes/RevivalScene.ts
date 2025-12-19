@@ -163,6 +163,10 @@ export class RevivalScene extends Phaser.Scene {
         this.gameState.revivalsUsed = [];
       }
       this.gameState.revivalsUsed.push(this.gameState.currentLevel);
+      console.log('[REVIVAL USED]', {
+        level: this.gameState.currentLevel,
+        revivalsUsed: [...this.gameState.revivalsUsed]
+      });
       
       this.time.delayedCall(2000, () => {
         // Restart the level fresh (but with revival used up)

@@ -1021,6 +1021,13 @@ export class GameScene extends Phaser.Scene {
     const revivalAvailable = !won && 
       !this.gameState.revivalsUsed.includes(this.gameState.currentLevel);
     
+    console.log('[REVIVAL CHECK]', {
+      won,
+      currentLevel: this.gameState.currentLevel,
+      revivalsUsed: [...this.gameState.revivalsUsed],
+      revivalAvailable
+    });
+    
     this.cameras.main.flash(300, won ? 57 : 255, won ? 255 : 68, won ? 20 : 68);
     
     this.time.delayedCall(600, () => {
