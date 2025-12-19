@@ -359,16 +359,12 @@ export class GameScene extends Phaser.Scene {
       const dot = this.add.circle(pos.x, pos.y, 5, level.color);
       dot.setStrokeStyle(1, 0xffffff);
       dot.setDepth(5);
-      dot.setData('tileX', pos.tileX);
-      dot.setData('tileY', pos.tileY);
-      dot.setData('pixelX', pos.x);
-      dot.setData('pixelY', pos.y);
-      // Random initial direction
-      const dirs = ['up', 'down', 'left', 'right'] as const;
-      dot.setData('dir', dirs[Math.floor(Math.random() * 4)]);
-      dot.setData('targetX', pos.x);
-      dot.setData('targetY', pos.y);
-      dot.setData('isMoving', false);
+      // Graph-based position: current tile + target tile + progress (0-1)
+      dot.setData('fromTileX', pos.tileX);
+      dot.setData('fromTileY', pos.tileY);
+      dot.setData('toTileX', pos.tileX);
+      dot.setData('toTileY', pos.tileY);
+      dot.setData('progress', 1.0); // Start at 1.0 = at destination, pick new direction
       
       this.tweens.add({
         targets: dot,
@@ -616,126 +612,105 @@ export class GameScene extends Phaser.Scene {
   }
   
   /**
-   * Update moving collectibles - grid-based movement along tunnels
-   * Collectibles move tile-to-tile like ghosts in Pacman
+   * Update moving collectibles - graph-edge based movement
+   * Position is strictly interpolated between tile centers (edges of the maze graph)
    */
   private updateCollectibles(delta: number) {
     if (this.collectibleSpeed === 0) return;
     
     const tileSize = this.maze.tileSize;
-    const speed = this.collectibleSpeed;
+    // Speed in tiles per second (convert from pixels/sec to tiles/sec)
+    const speedTilesPerSec = this.collectibleSpeed / tileSize;
+    const progressDelta = speedTilesPerSec * (delta / 1000);
     
     for (const dot of this.collectibles) {
-      let px = dot.getData('pixelX') as number;
-      let py = dot.getData('pixelY') as number;
-      let tileX = dot.getData('tileX') as number;
-      let tileY = dot.getData('tileY') as number;
-      let dir = dot.getData('dir') as 'up' | 'down' | 'left' | 'right';
-      let targetX = dot.getData('targetX') as number;
-      let targetY = dot.getData('targetY') as number;
-      let isMoving = dot.getData('isMoving') as boolean;
+      let fromX = dot.getData('fromTileX') as number;
+      let fromY = dot.getData('fromTileY') as number;
+      let toX = dot.getData('toTileX') as number;
+      let toY = dot.getData('toTileY') as number;
+      let progress = dot.getData('progress') as number;
       
-      if (!isMoving) {
-        // Pick a new direction - prefer to spread out from other collectibles
-        const validDirs: ('up' | 'down' | 'left' | 'right')[] = [];
-        const dirDeltas = {
-          'up': { dx: 0, dy: -1 },
-          'down': { dx: 0, dy: 1 },
-          'left': { dx: -1, dy: 0 },
-          'right': { dx: 1, dy: 0 },
-        };
+      // Advance progress along current edge
+      progress += progressDelta;
+      
+      // If reached destination tile, pick new direction
+      if (progress >= 1.0) {
+        // Snap to destination
+        fromX = toX;
+        fromY = toY;
+        progress = 0;
         
-        // Find valid directions (walkable neighbors)
-        for (const d of ['up', 'down', 'left', 'right'] as const) {
-          const delta = dirDeltas[d];
-          const nx = tileX + delta.dx;
-          const ny = tileY + delta.dy;
+        // Find valid neighbor tiles (walkable)
+        const neighbors: { x: number; y: number }[] = [];
+        const dirs = [
+          { dx: 0, dy: -1 }, // up
+          { dx: 0, dy: 1 },  // down
+          { dx: -1, dy: 0 }, // left
+          { dx: 1, dy: 0 },  // right
+        ];
+        
+        for (const d of dirs) {
+          const nx = fromX + d.dx;
+          const ny = fromY + d.dy;
           if (this.maze.isWalkableRaw(nx, ny)) {
-            validDirs.push(d);
+            neighbors.push({ x: nx, y: ny });
           }
         }
         
-        if (validDirs.length === 0) continue;
+        if (neighbors.length === 0) {
+          // Stuck (shouldn't happen) - stay in place
+          dot.setData('progress', 1.0);
+          continue;
+        }
         
-        // Prefer directions away from nearby collectibles (separation)
-        let bestDir = validDirs[Math.floor(Math.random() * validDirs.length)];
-        let maxDist = -1;
+        // Pick direction that maximizes distance to other collectibles (separation)
+        let bestNeighbor = neighbors[0];
+        let maxScore = -Infinity;
         
-        for (const d of validDirs) {
-          const delta = dirDeltas[d];
-          const nx = tileX + delta.dx;
-          const ny = tileY + delta.dy;
-          const nPixel = this.maze.getPixelFromTile(nx, ny);
+        for (const n of neighbors) {
+          const nPixel = this.maze.getPixelFromTile(n.x, n.y);
           
-          // Calculate min distance to other collectibles if we go this way
+          // Calculate min distance to other collectibles
           let minDistToOther = Infinity;
           for (const other of this.collectibles) {
             if (other === dot) continue;
-            const ox = other.getData('pixelX') as number;
-            const oy = other.getData('pixelY') as number;
-            const dist = Math.abs(nPixel.x - ox) + Math.abs(nPixel.y - oy);
+            const otherToX = other.getData('toTileX') as number;
+            const otherToY = other.getData('toTileY') as number;
+            const otherPixel = this.maze.getPixelFromTile(otherToX, otherToY);
+            const dist = Math.abs(nPixel.x - otherPixel.x) + Math.abs(nPixel.y - otherPixel.y);
             minDistToOther = Math.min(minDistToOther, dist);
           }
           
-          // Pick direction that maximizes distance to nearest collectible
-          // But add some randomness to avoid patterns
-          const score = minDistToOther + Math.random() * tileSize;
-          if (score > maxDist) {
-            maxDist = score;
-            bestDir = d;
+          // Score = distance to nearest other + randomness
+          const score = minDistToOther + Math.random() * tileSize * 0.5;
+          if (score > maxScore) {
+            maxScore = score;
+            bestNeighbor = n;
           }
         }
         
-        // Also sometimes just go random (30% chance) to avoid getting stuck
+        // 30% chance to go random instead
         if (Math.random() < 0.3) {
-          bestDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+          bestNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
         }
         
-        dir = bestDir;
-        const delta = dirDeltas[dir];
-        const newTileX = tileX + delta.dx;
-        const newTileY = tileY + delta.dy;
-        const target = this.maze.getPixelFromTile(newTileX, newTileY);
+        toX = bestNeighbor.x;
+        toY = bestNeighbor.y;
         
-        targetX = target.x;
-        targetY = target.y;
-        isMoving = true;
-        
-        dot.setData('dir', dir);
-        dot.setData('targetX', targetX);
-        dot.setData('targetY', targetY);
-        dot.setData('isMoving', true);
+        dot.setData('fromTileX', fromX);
+        dot.setData('fromTileY', fromY);
+        dot.setData('toTileX', toX);
+        dot.setData('toTileY', toY);
       }
       
-      // Move toward target
-      const dx = targetX - px;
-      const dy = targetY - py;
-      const dist = Math.sqrt(dx * dx + dy * dy);
+      dot.setData('progress', progress);
       
-      if (dist < speed * (delta / 1000) || dist < 1) {
-        // Reached target tile
-        px = targetX;
-        py = targetY;
-        const newTileX = Math.round((px - this.maze.offsetX) / tileSize - 0.5);
-        const newTileY = Math.round((py - this.maze.offsetY) / tileSize - 0.5);
-        tileX = Math.max(0, Math.min(this.maze.cols - 1, newTileX));
-        tileY = Math.max(0, Math.min(this.maze.rows - 1, newTileY));
-        isMoving = false;
-        
-        dot.setData('tileX', tileX);
-        dot.setData('tileY', tileY);
-        dot.setData('isMoving', false);
-      } else {
-        // Move toward target
-        const moveX = (dx / dist) * speed * (delta / 1000);
-        const moveY = (dy / dist) * speed * (delta / 1000);
-        px += moveX;
-        py += moveY;
-      }
+      // Calculate pixel position by interpolating between tile centers
+      const fromPixel = this.maze.getPixelFromTile(fromX, fromY);
+      const toPixel = this.maze.getPixelFromTile(toX, toY);
+      const px = fromPixel.x + (toPixel.x - fromPixel.x) * progress;
+      const py = fromPixel.y + (toPixel.y - fromPixel.y) * progress;
       
-      // Update position
-      dot.setData('pixelX', px);
-      dot.setData('pixelY', py);
       dot.setPosition(px, py);
     }
   }
