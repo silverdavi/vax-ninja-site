@@ -66,6 +66,9 @@ export class GameScene extends Phaser.Scene {
   private speechBubbles: Phaser.GameObjects.Container[] = [];
   private lastTauntTime: number = 0;
   
+  // Moving collectibles
+  private collectibleSpeed: number = 0; // Speed of moving collectibles
+  
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -269,8 +272,7 @@ export class GameScene extends Phaser.Scene {
     };
     
     this.input.keyboard?.on('keydown-ESC', () => {
-      musicManager.stop();
-      this.scene.start('TitleScene');
+      this.pauseGame();
     });
     
     // M to toggle music
@@ -355,6 +357,10 @@ export class GameScene extends Phaser.Scene {
       dot.setDepth(5);
       dot.setData('tileX', pos.tileX);
       dot.setData('tileY', pos.tileY);
+      dot.setData('pixelX', pos.x); // Track pixel position for smooth movement
+      dot.setData('pixelY', pos.y);
+      dot.setData('vx', 0); // Velocity
+      dot.setData('vy', 0);
       
       this.tweens.add({
         targets: dot,
@@ -369,6 +375,11 @@ export class GameScene extends Phaser.Scene {
     
     this.totalToCollect = this.collectibles.length;
     console.log(`[DEBUG] Actually placed: ${this.totalToCollect} collectibles`);
+    
+    // Set collectible speed: 5% of player speed at level 1, +1% per level
+    const baseSpeed = GAME_CONFIG.player.speed * 0.05;
+    const levelBonus = this.gameState.currentLevel * GAME_CONFIG.player.speed * 0.01;
+    this.collectibleSpeed = baseSpeed + levelBonus;
     
     // Oxygen tanks - only if we ALREADY have COVID
     // Tank count scales with difficulty
@@ -571,10 +582,127 @@ export class GameScene extends Phaser.Scene {
     this.player.update(delta);
     this.updateDoctorAI();
     this.doctor.update(delta);
+    this.updateCollectibles(delta);
     this.checkCollisions();
     this.updateMusicMood();
     this.updateSpeechBubbles(time, delta);
     this.updateBlurSpots(time);
+  }
+  
+  /**
+   * Pause the game
+   */
+  private pauseGame() {
+    this.scene.pause();
+    this.scene.launch('PauseScene', { parentScene: 'GameScene' });
+  }
+  
+  /**
+   * Update moving collectibles using separation force algorithm
+   * Points repel each other and avoid walls, creating natural spreading
+   */
+  private updateCollectibles(delta: number) {
+    if (this.collectibleSpeed === 0) return;
+    
+    const dt = delta / 1000; // Convert to seconds
+    const tileSize = this.maze.tileSize;
+    
+    for (const dot of this.collectibles) {
+      let px = dot.getData('pixelX') as number;
+      let py = dot.getData('pixelY') as number;
+      let vx = dot.getData('vx') as number;
+      let vy = dot.getData('vy') as number;
+      
+      // === SEPARATION FORCE ===
+      // Repel from other collectibles
+      let forceX = 0;
+      let forceY = 0;
+      
+      for (const other of this.collectibles) {
+        if (other === dot) continue;
+        
+        const ox = other.getData('pixelX') as number;
+        const oy = other.getData('pixelY') as number;
+        const dx = px - ox;
+        const dy = py - oy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Strong repulsion when close (within 2 tile widths)
+        if (dist < tileSize * 2 && dist > 0) {
+          const strength = (tileSize * 2 - dist) / (tileSize * 2);
+          forceX += (dx / dist) * strength * 2;
+          forceY += (dy / dist) * strength * 2;
+        }
+      }
+      
+      // === WALL AVOIDANCE ===
+      // Get current tile and check neighbors
+      const tileX = Math.floor((px - this.maze.offsetX) / tileSize);
+      const tileY = Math.floor((py - this.maze.offsetY) / tileSize);
+      
+      // Check 4 directions for walls and push away
+      const checkDirs = [
+        { dx: -1, dy: 0, px: -1, py: 0 },
+        { dx: 1, dy: 0, px: 1, py: 0 },
+        { dx: 0, dy: -1, px: 0, py: -1 },
+        { dx: 0, dy: 1, px: 0, py: 1 },
+      ];
+      
+      for (const dir of checkDirs) {
+        if (!this.maze.isWalkableRaw(tileX + dir.dx, tileY + dir.dy)) {
+          // Wall in this direction - push away
+          forceX -= dir.px * 0.5;
+          forceY -= dir.py * 0.5;
+        }
+      }
+      
+      // === RANDOM WALK (small) ===
+      forceX += (Math.random() - 0.5) * 0.2;
+      forceY += (Math.random() - 0.5) * 0.2;
+      
+      // === APPLY FORCES ===
+      vx += forceX * dt * 50;
+      vy += forceY * dt * 50;
+      
+      // Limit velocity
+      const speed = Math.sqrt(vx * vx + vy * vy);
+      if (speed > this.collectibleSpeed) {
+        vx = (vx / speed) * this.collectibleSpeed;
+        vy = (vy / speed) * this.collectibleSpeed;
+      }
+      
+      // Apply friction
+      vx *= 0.95;
+      vy *= 0.95;
+      
+      // === MOVE ===
+      const newX = px + vx * dt;
+      const newY = py + vy * dt;
+      
+      // Check if new position is walkable
+      const newTileX = Math.floor((newX - this.maze.offsetX) / tileSize);
+      const newTileY = Math.floor((newY - this.maze.offsetY) / tileSize);
+      
+      if (this.maze.isWalkableRaw(newTileX, newTileY)) {
+        px = newX;
+        py = newY;
+        dot.setData('tileX', newTileX);
+        dot.setData('tileY', newTileY);
+      } else {
+        // Bounce off wall
+        vx *= -0.5;
+        vy *= -0.5;
+      }
+      
+      // Update data
+      dot.setData('pixelX', px);
+      dot.setData('pixelY', py);
+      dot.setData('vx', vx);
+      dot.setData('vy', vy);
+      
+      // Update visual position
+      dot.setPosition(px, py);
+    }
   }
   
   /**

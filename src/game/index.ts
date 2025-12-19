@@ -8,6 +8,7 @@ import { SettingsScene } from './scenes/SettingsScene';
 import { LeaderboardScene } from './scenes/LeaderboardScene';
 import { RevivalScene } from './scenes/RevivalScene';
 import { AboutScene } from './scenes/AboutScene';
+import { PauseScene } from './scenes/PauseScene';
 
 export function createGame(parent: HTMLElement): Phaser.Game {
   const isMobile = window.innerWidth < 600 || 'ontouchstart' in window;
@@ -18,7 +19,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
     height: GAME_CONFIG.height,
     parent,
     backgroundColor: `#${GAME_CONFIG.colors.bg.toString(16).padStart(6, '0')}`,
-    scene: [BootScene, TitleScene, SettingsScene, LeaderboardScene, AboutScene, RevivalScene, GameScene, GameOverScene],
+    scene: [BootScene, TitleScene, SettingsScene, LeaderboardScene, AboutScene, PauseScene, RevivalScene, GameScene, GameOverScene],
     physics: {
       default: 'arcade',
       arcade: {
