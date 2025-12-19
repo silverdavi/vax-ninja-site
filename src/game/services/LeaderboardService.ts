@@ -6,12 +6,13 @@
 
 export interface LeaderboardEntry {
   name: string;
-  score: number;       // Total diseases collected
-  level: number;       // Highest level reached
+  score: number;       // Total collectibles eaten (with difficulty modifier)
+  level: number;       // Current level within round
   time: number;        // Total time survived (ms)
   debuffs: string[];   // Diseases collected
   timestamp: number;
   country?: string;    // Optional country flag
+  round?: number;      // NG+ round (1 = first, 2+ = NG+)
 }
 
 // Upstash Redis configuration
@@ -59,9 +60,10 @@ export async function submitScore(entry: Omit<LeaderboardEntry, 'timestamp'>): P
     // Store the full entry data as JSON
     await redis('SET', scoreKey, JSON.stringify(fullEntry));
     
-    // Add to sorted set for ranking (score = level * 100 + diseases collected * 10 + time bonus)
-    // Higher is better
-    const rankScore = fullEntry.level * 1000 + fullEntry.score * 100 + Math.floor(fullEntry.time / 1000);
+    // Add to sorted set for ranking
+    // Formula: round * 10000 + score * 100 + level * 10 (higher is better)
+    const round = fullEntry.round || 1;
+    const rankScore = round * 10000 + fullEntry.score * 100 + fullEntry.level * 10;
     await redis('ZADD', 'leaderboard', rankScore, scoreKey);
     
     // Also save locally as backup

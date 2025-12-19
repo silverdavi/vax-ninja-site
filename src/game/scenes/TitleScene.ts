@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config';
 import { musicManager } from '../audio/MusicManager';
+import { submitScore, getStoredPlayerName, setStoredPlayerName, getTopScores } from '../services/LeaderboardService';
 
 export class TitleScene extends Phaser.Scene {
   private isMobile: boolean = false;
@@ -14,6 +15,9 @@ export class TitleScene extends Phaser.Scene {
     this.isMobile = this.registry.get('isMobile') || false;
     
     this.cameras.main.setBackgroundColor(GAME_CONFIG.colors.bg);
+    
+    // Check for unsaved backup from crash
+    this.checkBackupRecovery();
     
     // Initialize music on first interaction
     this.input.once('pointerdown', () => {
@@ -203,5 +207,56 @@ export class TitleScene extends Phaser.Scene {
         },
       });
     });
+  }
+  
+  /**
+   * Check for unsaved backup from crash and offer to submit score
+   */
+  private async checkBackupRecovery() {
+    try {
+      const backupStr = localStorage.getItem('vaxninja_backup');
+      if (!backupStr) return;
+      
+      const backup = JSON.parse(backupStr);
+      const ageMinutes = (Date.now() - backup.timestamp) / 60000;
+      
+      // Only recover if backup is recent (< 30 minutes) and has a meaningful score
+      if (ageMinutes > 30 || backup.totalScore < 5) {
+        localStorage.removeItem('vaxninja_backup');
+        return;
+      }
+      
+      // Check if it would be a top 10 score
+      const topScores = await getTopScores(10);
+      const lowestTop10 = topScores.length >= 10 ? topScores[9].score : 0;
+      
+      if (topScores.length < 10 || backup.totalScore > lowestTop10) {
+        // Offer to save the crashed game's score
+        const storedName = getStoredPlayerName();
+        const playerName = prompt(
+          `🔄 RECOVERED SCORE!\n\nYour previous game crashed with score: ${backup.totalScore}\n(Round ${backup.round}, Level ${backup.level})\n\nThis is a TOP 10 score! Enter your name to save it:`,
+          storedName || 'Player'
+        );
+        
+        if (playerName && playerName.trim()) {
+          setStoredPlayerName(playerName.trim());
+          await submitScore({
+            name: playerName.trim(),
+            score: backup.totalScore,
+            level: backup.level,
+            time: 0, // Unknown on crash recovery
+            debuffs: backup.debuffs || [],
+            round: backup.round,
+          });
+          console.log('✅ Recovered score saved!');
+        }
+      }
+      
+      // Clear backup after handling
+      localStorage.removeItem('vaxninja_backup');
+    } catch (e) {
+      console.warn('Failed to check backup recovery:', e);
+      localStorage.removeItem('vaxninja_backup');
+    }
   }
 }

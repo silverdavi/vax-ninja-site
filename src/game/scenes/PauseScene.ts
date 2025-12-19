@@ -1,17 +1,31 @@
 import Phaser from 'phaser';
+import { loadSettings, SCORE_MULTIPLIERS } from '../config';
+import { submitScore, getStoredPlayerName, setStoredPlayerName, getTopScores } from '../services/LeaderboardService';
+
+interface GameState {
+  currentLevel: number;
+  activeDebuffs: string[];
+  totalCollected: number;
+  revivalsUsed: number[];
+  round: number;
+}
 
 /**
  * Pause Scene - Overlay when ESC is pressed
  */
 export class PauseScene extends Phaser.Scene {
   private parentSceneKey: string = 'GameScene';
+  private gameState?: GameState;
+  private currentCollected: number = 0;
   
   constructor() {
     super({ key: 'PauseScene' });
   }
   
-  init(data: { parentScene: string }) {
+  init(data: { parentScene: string; gameState?: GameState; collected?: number }) {
     this.parentSceneKey = data.parentScene || 'GameScene';
+    this.gameState = data.gameState;
+    this.currentCollected = data.collected || 0;
   }
   
   create() {
@@ -70,7 +84,42 @@ export class PauseScene extends Phaser.Scene {
     this.scene.stop();
   }
   
-  private exitToMenu() {
+  private async exitToMenu() {
+    // Check if score qualifies for leaderboard before exiting!
+    if (this.gameState) {
+      const settings = loadSettings();
+      const modifier = SCORE_MULTIPLIERS[settings.difficulty] || 1.0;
+      const totalScore = Math.floor((this.gameState.totalCollected + this.currentCollected) * modifier);
+      
+      if (totalScore > 0) {
+        try {
+          const topScores = await getTopScores(10);
+          const lowestTop10 = topScores.length >= 10 ? topScores[9].score : 0;
+          
+          if (topScores.length < 10 || totalScore > lowestTop10) {
+            // Top 10! Prompt for name
+            const storedName = getStoredPlayerName();
+            const playerName = prompt(`🏆 TOP 10! Score: ${totalScore}\nEnter your name:`, storedName || 'Player');
+            
+            if (playerName && playerName.trim()) {
+              setStoredPlayerName(playerName.trim());
+              await submitScore({
+                name: playerName.trim(),
+                score: totalScore,
+                level: this.gameState.currentLevel + 1,
+                time: 0, // Unknown time on early exit
+                debuffs: [...this.gameState.activeDebuffs],
+                round: this.gameState.round || 1,
+              });
+              console.log('✅ Score saved before exit!');
+            }
+          }
+        } catch (err) {
+          console.error('Failed to check/save score on exit:', err);
+        }
+      }
+    }
+    
     this.scene.stop(this.parentSceneKey);
     this.scene.start('TitleScene');
   }

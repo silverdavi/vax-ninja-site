@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { Doctor } from '../entities/Doctor';
 import { Maze } from '../entities/Maze';
-import { GAME_CONFIG, MAZES, loadSettings, DIFFICULTY_CONFIG } from '../config';
+import { GAME_CONFIG, MAZES, loadSettings, DIFFICULTY_CONFIG, SCORE_MULTIPLIERS } from '../config';
 import { musicManager } from '../audio/MusicManager';
 import { getRandomTaunt } from '../data/doctorTaunts';
 
@@ -148,6 +148,13 @@ export class GameScene extends Phaser.Scene {
     
     // Track game start time for leaderboard
     this.gameStartTime = Date.now();
+    
+    // Periodic backup save every 30 seconds (in case of crash/close)
+    this.time.addEvent({
+      delay: 30000,
+      callback: () => this.backupProgress(),
+      loop: true,
+    });
     
     // Initialize and start music
     musicManager.init();
@@ -644,7 +651,11 @@ export class GameScene extends Phaser.Scene {
    */
   private pauseGame() {
     this.scene.pause();
-    this.scene.launch('PauseScene', { parentScene: 'GameScene' });
+    this.scene.launch('PauseScene', { 
+      parentScene: 'GameScene',
+      gameState: this.gameState,
+      collected: this.collected,
+    });
   }
   
   /**
@@ -1166,5 +1177,30 @@ export class GameScene extends Phaser.Scene {
     const g = Math.min(255, Math.floor(((hex >> 8) & 0xFF) * brightenFactor));
     const b = Math.min(255, Math.floor((hex & 0xFF) * brightenFactor));
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
+  
+  /**
+   * Backup current progress to localStorage (crash protection)
+   */
+  private backupProgress() {
+    if (this.isGameOver) return;
+    
+    const settings = loadSettings();
+    const modifier = SCORE_MULTIPLIERS[settings.difficulty] || 1.0;
+    const totalScore = Math.floor((this.gameState.totalCollected + this.collected) * modifier);
+    
+    const backup = {
+      totalScore,
+      round: this.gameState.round,
+      level: this.gameState.currentLevel + 1,
+      debuffs: this.gameState.activeDebuffs,
+      timestamp: Date.now(),
+    };
+    
+    try {
+      localStorage.setItem('vaxninja_backup', JSON.stringify(backup));
+    } catch (e) {
+      console.warn('Failed to backup progress:', e);
+    }
   }
 }

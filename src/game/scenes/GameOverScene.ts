@@ -44,6 +44,13 @@ export class GameOverScene extends Phaser.Scene {
     const modifier = SCORE_MULTIPLIERS[settings.difficulty] || 1.0;
     
     this.finalScore = Math.floor(this.gameState.totalCollected * modifier);
+    
+    // Clear crash backup since we reached proper game over
+    try {
+      localStorage.removeItem('vaxninja_backup');
+    } catch (e) {
+      // Ignore
+    }
   }
 
   create() {
@@ -339,6 +346,7 @@ export class GameOverScene extends Phaser.Scene {
             level: this.gameState.currentLevel + 1,
             time: this.totalTime,
             debuffs: [...this.gameState.activeDebuffs],
+            round: this.gameState.round || 1,
           });
           
           this.add.text(width / 2, height * 0.88, `🏆 "${playerName}" added to leaderboard!`, {
