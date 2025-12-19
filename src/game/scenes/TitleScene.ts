@@ -147,10 +147,19 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
     
     // Disclaimer
-    this.add.text(width / 2, height - 15, '⚠️ SATIRE: Vaccines save lives! Get vaccinated! 💉', {
+    this.add.text(width / 2, height - 25, '⚠️ SATIRE: Vaccines save lives! Get vaccinated! 💉', {
       fontFamily: 'VT323',
       fontSize: '12px',
       color: '#FFE66D',
+    }).setOrigin(0.5);
+    
+    // Version / build time
+    const buildDate = new Date(__BUILD_TIME__);
+    const versionStr = `v${buildDate.toLocaleDateString()} ${buildDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    this.add.text(width / 2, height - 8, versionStr, {
+      fontFamily: 'VT323',
+      fontSize: '10px',
+      color: '#6A5A7A',
     }).setOrigin(0.5);
   }
 
