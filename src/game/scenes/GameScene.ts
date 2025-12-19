@@ -411,11 +411,24 @@ export class GameScene extends Phaser.Scene {
 
   private createUI(level: typeof GAME_CONFIG.levels[0], width: number) {
     const fontSize = this.isMobile ? '10px' : '14px';
+    const settings = loadSettings();
     
-    this.add.text(width / 2, 8, `Level ${this.gameState.currentLevel + 1}: ${level.emoji} ${level.name}`, {
+    // Level name (center)
+    this.add.text(width / 2, 6, `Level ${this.gameState.currentLevel + 1}: ${level.emoji} ${level.name}`, {
       fontFamily: '"Press Start 2P"',
       fontSize: fontSize,
       color: '#FF6B9D',
+    }).setOrigin(0.5, 0).setDepth(100);
+    
+    // Difficulty indicator (center, below level name)
+    const diffEmojis: Record<string, string> = {
+      noob: '👶', easy: '😊', normal: '😐', hard: '😤', master: '💀'
+    };
+    const diffLabel = `${diffEmojis[settings.difficulty] || ''} ${settings.difficulty.toUpperCase()}`;
+    this.add.text(width / 2, this.isMobile ? 22 : 26, diffLabel, {
+      fontFamily: 'VT323',
+      fontSize: this.isMobile ? '12px' : '14px',
+      color: '#9A8AB0',
     }).setOrigin(0.5, 0).setDepth(100);
     
     // Collectibles counter (left side)
@@ -425,7 +438,7 @@ export class GameScene extends Phaser.Scene {
       color: '#39FF14',
     }).setDepth(100);
     
-    // Total score (right side, under level name or on right)
+    // Total score (right side)
     const currentTotal = this.gameState.totalCollected + this.collected;
     this.totalScoreText = this.add.text(width - 10, 8, `SCORE: ${currentTotal}`, {
       fontFamily: '"Press Start 2P"',
