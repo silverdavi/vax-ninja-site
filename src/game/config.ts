@@ -121,7 +121,7 @@ export const GAME_CONFIG = {
 
 // Game settings (persisted)
 export interface GameSettings {
-  difficulty: 'easy' | 'normal' | 'hard';
+  difficulty: 'noob' | 'easy' | 'normal' | 'hard' | 'master';
   musicVolume: number; // 0-1
   soundEnabled: boolean;
 }
@@ -130,6 +130,15 @@ export const DEFAULT_SETTINGS: GameSettings = {
   difficulty: 'normal',
   musicVolume: 0.15,
   soundEnabled: true,
+};
+
+// Score multipliers for each difficulty (proportional)
+export const SCORE_MULTIPLIERS: Record<GameSettings['difficulty'], number> = {
+  noob: 0.5,    // 50%
+  easy: 0.75,   // 75%
+  normal: 1.0,  // 100%
+  hard: 1.25,   // 125%
+  master: 1.5,  // 150%
 };
 
 /**
@@ -144,6 +153,19 @@ export const DEFAULT_SETTINGS: GameSettings = {
  * O2 should last long enough to complete with 1-2 tank pickups
  */
 export const DIFFICULTY_CONFIG = {
+  noob: {
+    doctorSpeedMult: 0.70,      // Doctor 30% slower - very easy to escape
+    o2DrainPerTick: 0.50,       // ~2.5%/sec → 40 sec to drain
+    o2TankCount: 8,             // Lots of tanks
+    o2RefillAmount: 60,         // Each tank gives lots
+    limpIntervalMin: 5000,      // Very rare limps
+    limpIntervalMax: 8000,
+    limpDuration: 200,          // Very short limp
+    freezeChance: 0.02,         // 2% chance = very rare
+    freezeInterval: 3000,
+    freezeDuration: 500,        // Very short freeze
+    blurSpotCount: 4,           // Few blur spots
+  },
   easy: {
     doctorSpeedMult: 0.85,      // Doctor 15% slower
     o2DrainPerTick: 0.66,       // ~3.3%/sec → 30 sec to drain
@@ -182,6 +204,19 @@ export const DIFFICULTY_CONFIG = {
     freezeInterval: 2000,
     freezeDuration: 1200,       // Longer freeze
     blurSpotCount: 10,          // More blur spots
+  },
+  master: {
+    doctorSpeedMult: 1.30,      // Doctor 30% faster - nearly impossible to escape
+    o2DrainPerTick: 1.3,        // ~6.5%/sec → 15 sec to drain
+    o2TankCount: 3,             // Very few tanks
+    o2RefillAmount: 30,         // Small refill
+    limpIntervalMin: 1500,      // Very frequent limps
+    limpIntervalMax: 3000,
+    limpDuration: 600,          // Long limp
+    freezeChance: 0.12,         // 12% chance = frequent freezes
+    freezeInterval: 1500,
+    freezeDuration: 1500,       // Long freeze
+    blurSpotCount: 12,          // Many blur spots
   },
 };
 

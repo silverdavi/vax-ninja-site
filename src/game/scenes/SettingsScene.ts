@@ -37,13 +37,19 @@ export class SettingsScene extends Phaser.Scene {
       color: '#9A8AB0',
     }).setOrigin(0.5);
     
-    // Difficulty buttons
-    const diffY = 210;
-    this.createButton(width / 2 - 100, diffY, 'EASY', () => this.setDifficulty('easy'));
-    this.createButton(width / 2, diffY, 'NORMAL', () => this.setDifficulty('normal'));
-    this.createButton(width / 2 + 100, diffY, 'HARD', () => this.setDifficulty('hard'));
+    // Difficulty buttons (5 options in 2 rows)
+    const diffY1 = 200;
+    const diffY2 = 235;
+    const spacing = 80;
     
-    this.difficultyText = this.add.text(width / 2, 260, this.getDifficultyLabel(), {
+    this.createButton(width / 2 - spacing, diffY1, 'NOOB', () => this.setDifficulty('noob'));
+    this.createButton(width / 2, diffY1, 'EASY', () => this.setDifficulty('easy'));
+    this.createButton(width / 2 + spacing, diffY1, 'NORMAL', () => this.setDifficulty('normal'));
+    
+    this.createButton(width / 2 - spacing / 2, diffY2, 'HARD', () => this.setDifficulty('hard'));
+    this.createButton(width / 2 + spacing / 2, diffY2, 'MASTER', () => this.setDifficulty('master'));
+    
+    this.difficultyText = this.add.text(width / 2, 275, this.getDifficultyLabel(), {
       fontFamily: 'VT323',
       fontSize: '16px',
       color: '#39FF14',
@@ -124,7 +130,7 @@ export class SettingsScene extends Phaser.Scene {
     return btn;
   }
   
-  private setDifficulty(diff: 'easy' | 'normal' | 'hard') {
+  private setDifficulty(diff: GameSettings['difficulty']) {
     this.settings.difficulty = diff;
     saveSettings(this.settings);
     this.difficultyText.setText(this.getDifficultyLabel());
@@ -139,9 +145,11 @@ export class SettingsScene extends Phaser.Scene {
   
   private getDifficultyLabel(): string {
     switch (this.settings.difficulty) {
-      case 'easy': return 'EASY (Doctor -10% speed)';
-      case 'hard': return 'HARD (Doctor +10% speed)';
-      default: return 'NORMAL';
+      case 'noob': return '👶 NOOB (Doctor -30%, Score ×0.5)';
+      case 'easy': return '😊 EASY (Doctor -15%, Score ×0.75)';
+      case 'hard': return '😤 HARD (Doctor +15%, Score ×1.25)';
+      case 'master': return '💀 MASTER (Doctor +30%, Score ×1.5)';
+      default: return '😐 NORMAL (Score ×1.0)';
     }
   }
   

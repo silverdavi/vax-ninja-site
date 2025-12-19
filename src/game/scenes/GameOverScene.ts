@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_CONFIG, loadSettings } from '../config';
+import { GAME_CONFIG, loadSettings, SCORE_MULTIPLIERS } from '../config';
 import { submitScore, getStoredPlayerName, setStoredPlayerName, getTopScores } from '../services/LeaderboardService';
 
 interface GameState {
@@ -40,9 +40,7 @@ export class GameOverScene extends Phaser.Scene {
     // Calculate final score with difficulty modifier
     const settings = loadSettings();
     this.difficulty = settings.difficulty;
-    let modifier = 1.0;
-    if (settings.difficulty === 'hard') modifier = 1.25;
-    else if (settings.difficulty === 'easy') modifier = 0.75;
+    const modifier = SCORE_MULTIPLIERS[settings.difficulty] || 1.0;
     
     this.finalScore = Math.floor(this.gameState.totalCollected * modifier);
   }
@@ -58,8 +56,10 @@ export class GameOverScene extends Phaser.Scene {
     const titleSize = this.isMobile ? '16px' : '22px';
     const textSize = this.isMobile ? '14px' : '18px';
     
-    // Always show score
-    const diffLabel = this.difficulty === 'hard' ? ' (+25%)' : this.difficulty === 'easy' ? ' (-25%)' : '';
+    // Always show score with difficulty modifier
+    const mult = SCORE_MULTIPLIERS[this.difficulty as keyof typeof SCORE_MULTIPLIERS] || 1.0;
+    const pct = Math.round((mult - 1) * 100);
+    const diffLabel = pct > 0 ? ` (+${pct}%)` : pct < 0 ? ` (${pct}%)` : '';
     this.add.text(width / 2, height * 0.95, `SCORE: ${this.finalScore}${diffLabel}`, {
       fontFamily: '"Press Start 2P"',
       fontSize: '10px',
