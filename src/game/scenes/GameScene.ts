@@ -361,10 +361,14 @@ export class GameScene extends Phaser.Scene {
       dot.setDepth(5);
       dot.setData('tileX', pos.tileX);
       dot.setData('tileY', pos.tileY);
-      dot.setData('pixelX', pos.x); // Track pixel position for smooth movement
+      dot.setData('pixelX', pos.x);
       dot.setData('pixelY', pos.y);
-      dot.setData('vx', 0); // Velocity
-      dot.setData('vy', 0);
+      // Random initial direction
+      const dirs = ['up', 'down', 'left', 'right'] as const;
+      dot.setData('dir', dirs[Math.floor(Math.random() * 4)]);
+      dot.setData('targetX', pos.x);
+      dot.setData('targetY', pos.y);
+      dot.setData('isMoving', false);
       
       this.tweens.add({
         targets: dot,
@@ -612,109 +616,126 @@ export class GameScene extends Phaser.Scene {
   }
   
   /**
-   * Update moving collectibles using separation force algorithm
-   * Points repel each other and avoid walls, creating natural spreading
+   * Update moving collectibles - grid-based movement along tunnels
+   * Collectibles move tile-to-tile like ghosts in Pacman
    */
   private updateCollectibles(delta: number) {
     if (this.collectibleSpeed === 0) return;
     
-    const dt = delta / 1000; // Convert to seconds
     const tileSize = this.maze.tileSize;
+    const speed = this.collectibleSpeed;
     
     for (const dot of this.collectibles) {
       let px = dot.getData('pixelX') as number;
       let py = dot.getData('pixelY') as number;
-      let vx = dot.getData('vx') as number;
-      let vy = dot.getData('vy') as number;
+      let tileX = dot.getData('tileX') as number;
+      let tileY = dot.getData('tileY') as number;
+      let dir = dot.getData('dir') as 'up' | 'down' | 'left' | 'right';
+      let targetX = dot.getData('targetX') as number;
+      let targetY = dot.getData('targetY') as number;
+      let isMoving = dot.getData('isMoving') as boolean;
       
-      // === SEPARATION FORCE ===
-      // Repel from other collectibles
-      let forceX = 0;
-      let forceY = 0;
-      
-      for (const other of this.collectibles) {
-        if (other === dot) continue;
+      if (!isMoving) {
+        // Pick a new direction - prefer to spread out from other collectibles
+        const validDirs: ('up' | 'down' | 'left' | 'right')[] = [];
+        const dirDeltas = {
+          'up': { dx: 0, dy: -1 },
+          'down': { dx: 0, dy: 1 },
+          'left': { dx: -1, dy: 0 },
+          'right': { dx: 1, dy: 0 },
+        };
         
-        const ox = other.getData('pixelX') as number;
-        const oy = other.getData('pixelY') as number;
-        const dx = px - ox;
-        const dy = py - oy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        // Find valid directions (walkable neighbors)
+        for (const d of ['up', 'down', 'left', 'right'] as const) {
+          const delta = dirDeltas[d];
+          const nx = tileX + delta.dx;
+          const ny = tileY + delta.dy;
+          if (this.maze.isWalkableRaw(nx, ny)) {
+            validDirs.push(d);
+          }
+        }
         
-        // Strong repulsion when close (within 2 tile widths)
-        if (dist < tileSize * 2 && dist > 0) {
-          const strength = (tileSize * 2 - dist) / (tileSize * 2);
-          forceX += (dx / dist) * strength * 2;
-          forceY += (dy / dist) * strength * 2;
+        if (validDirs.length === 0) continue;
+        
+        // Prefer directions away from nearby collectibles (separation)
+        let bestDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+        let maxDist = -1;
+        
+        for (const d of validDirs) {
+          const delta = dirDeltas[d];
+          const nx = tileX + delta.dx;
+          const ny = tileY + delta.dy;
+          const nPixel = this.maze.getPixelFromTile(nx, ny);
+          
+          // Calculate min distance to other collectibles if we go this way
+          let minDistToOther = Infinity;
+          for (const other of this.collectibles) {
+            if (other === dot) continue;
+            const ox = other.getData('pixelX') as number;
+            const oy = other.getData('pixelY') as number;
+            const dist = Math.abs(nPixel.x - ox) + Math.abs(nPixel.y - oy);
+            minDistToOther = Math.min(minDistToOther, dist);
+          }
+          
+          // Pick direction that maximizes distance to nearest collectible
+          // But add some randomness to avoid patterns
+          const score = minDistToOther + Math.random() * tileSize;
+          if (score > maxDist) {
+            maxDist = score;
+            bestDir = d;
+          }
         }
-      }
-      
-      // === WALL AVOIDANCE ===
-      // Get current tile and check neighbors
-      const tileX = Math.floor((px - this.maze.offsetX) / tileSize);
-      const tileY = Math.floor((py - this.maze.offsetY) / tileSize);
-      
-      // Check 4 directions for walls and push away
-      const checkDirs = [
-        { dx: -1, dy: 0, px: -1, py: 0 },
-        { dx: 1, dy: 0, px: 1, py: 0 },
-        { dx: 0, dy: -1, px: 0, py: -1 },
-        { dx: 0, dy: 1, px: 0, py: 1 },
-      ];
-      
-      for (const dir of checkDirs) {
-        if (!this.maze.isWalkableRaw(tileX + dir.dx, tileY + dir.dy)) {
-          // Wall in this direction - push away
-          forceX -= dir.px * 0.5;
-          forceY -= dir.py * 0.5;
+        
+        // Also sometimes just go random (30% chance) to avoid getting stuck
+        if (Math.random() < 0.3) {
+          bestDir = validDirs[Math.floor(Math.random() * validDirs.length)];
         }
+        
+        dir = bestDir;
+        const delta = dirDeltas[dir];
+        const newTileX = tileX + delta.dx;
+        const newTileY = tileY + delta.dy;
+        const target = this.maze.getPixelFromTile(newTileX, newTileY);
+        
+        targetX = target.x;
+        targetY = target.y;
+        isMoving = true;
+        
+        dot.setData('dir', dir);
+        dot.setData('targetX', targetX);
+        dot.setData('targetY', targetY);
+        dot.setData('isMoving', true);
       }
       
-      // === RANDOM WALK (small) ===
-      forceX += (Math.random() - 0.5) * 0.2;
-      forceY += (Math.random() - 0.5) * 0.2;
+      // Move toward target
+      const dx = targetX - px;
+      const dy = targetY - py;
+      const dist = Math.sqrt(dx * dx + dy * dy);
       
-      // === APPLY FORCES ===
-      vx += forceX * dt * 50;
-      vy += forceY * dt * 50;
-      
-      // Limit velocity
-      const speed = Math.sqrt(vx * vx + vy * vy);
-      if (speed > this.collectibleSpeed) {
-        vx = (vx / speed) * this.collectibleSpeed;
-        vy = (vy / speed) * this.collectibleSpeed;
-      }
-      
-      // Apply friction
-      vx *= 0.95;
-      vy *= 0.95;
-      
-      // === MOVE ===
-      const newX = px + vx * dt;
-      const newY = py + vy * dt;
-      
-      // Check if new position is walkable
-      const newTileX = Math.floor((newX - this.maze.offsetX) / tileSize);
-      const newTileY = Math.floor((newY - this.maze.offsetY) / tileSize);
-      
-      if (this.maze.isWalkableRaw(newTileX, newTileY)) {
-        px = newX;
-        py = newY;
-        dot.setData('tileX', newTileX);
-        dot.setData('tileY', newTileY);
+      if (dist < speed * (delta / 1000) || dist < 1) {
+        // Reached target tile
+        px = targetX;
+        py = targetY;
+        const newTileX = Math.round((px - this.maze.offsetX) / tileSize - 0.5);
+        const newTileY = Math.round((py - this.maze.offsetY) / tileSize - 0.5);
+        tileX = Math.max(0, Math.min(this.maze.cols - 1, newTileX));
+        tileY = Math.max(0, Math.min(this.maze.rows - 1, newTileY));
+        isMoving = false;
+        
+        dot.setData('tileX', tileX);
+        dot.setData('tileY', tileY);
+        dot.setData('isMoving', false);
       } else {
-        // Bounce off wall
-        vx *= -0.5;
-        vy *= -0.5;
+        // Move toward target
+        const moveX = (dx / dist) * speed * (delta / 1000);
+        const moveY = (dy / dist) * speed * (delta / 1000);
+        px += moveX;
+        py += moveY;
       }
       
-      // Update data
+      // Update position
       dot.setData('pixelX', px);
       dot.setData('pixelY', py);
-      dot.setData('vx', vx);
-      dot.setData('vy', vy);
-      
-      // Update visual position
       dot.setPosition(px, py);
     }
   }
