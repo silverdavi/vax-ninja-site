@@ -543,17 +543,18 @@ export class GameScene extends Phaser.Scene {
     }
     
     // Rubella dizzy - controls randomly reverse (during level OR as debuff)
+    // REDUCED: less frequent, shorter duration, lower chance
     const isRubella = level.id === 'rubella' || this.hasDizzy;
     if (isRubella) {
       this.time.addEvent({
-        delay: 3000 + Math.random() * 2000, // Every 3-5 seconds
+        delay: 6000 + Math.random() * 4000, // Every 6-10 seconds (was 3-5)
         loop: true,
         callback: () => {
           if (this.isGameOver) return;
-          if (Math.random() < 0.4) { // 40% chance
+          if (Math.random() < 0.25) { // 25% chance (was 40%)
             this.isDizzyReversed = true;
             // Flash screen pink briefly
-            this.cameras.main.flash(200, 255, 105, 180, false);
+            this.cameras.main.flash(150, 255, 105, 180, false);
             // Show text indicator
             const txt = this.add.text(this.cameras.main.width / 2, 60, '🔄 REVERSED!', {
               fontFamily: '"Press Start 2P"',
@@ -561,8 +562,8 @@ export class GameScene extends Phaser.Scene {
               color: '#FF69B4',
             }).setOrigin(0.5).setScrollFactor(0).setDepth(300);
             
-            // Reset after 2 seconds
-            this.time.delayedCall(2000, () => {
+            // Reset after 1 second (was 2)
+            this.time.delayedCall(1000, () => {
               this.isDizzyReversed = false;
               txt.destroy();
             });
@@ -572,17 +573,18 @@ export class GameScene extends Phaser.Scene {
     }
     
     // Hepatitis fatigue - periodic energy crashes (during level OR as debuff)
+    // REDUCED: much less frequent, shorter freeze
     const isHepatitis = level.id === 'hepatitis' || this.hasFatigue;
     if (isHepatitis) {
       this.time.addEvent({
-        delay: 8000 + Math.random() * 4000, // Every 8-12 seconds
+        delay: 12000 + Math.random() * 6000, // Every 12-18 seconds (was 8-12)
         loop: true,
         callback: () => {
           if (this.isGameOver || this.player.isFrozen) return;
           // Energy crash - freeze player briefly
-          this.player.freeze(1500); // 1.5 second crash
+          this.player.freeze(800); // 0.8 second crash (was 1.5)
           // Yellow flash for fatigue
-          this.cameras.main.flash(300, 255, 255, 0, false);
+          this.cameras.main.flash(200, 255, 255, 0, false);
         },
       });
     }
