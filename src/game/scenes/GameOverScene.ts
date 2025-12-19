@@ -18,14 +18,16 @@ export class GameOverScene extends Phaser.Scene {
   private scoreSubmitted: boolean = false;
   private finalScore: number = 0;
   private difficulty: string = 'normal';
+  private revivalFailed: boolean = false; // True if came from failed/skipped revival quiz
   
   constructor() {
     super({ key: 'GameOverScene' });
   }
 
-  init(data: { won: boolean; gameState: GameState; message: string; totalTime?: number; collected?: number }) {
+  init(data: { won: boolean; gameState: GameState; message: string; totalTime?: number; collected?: number; revivalFailed?: boolean }) {
     this.won = data.won;
     this.gameState = data.gameState;
+    this.revivalFailed = data.revivalFailed || false;
     this.gameState.totalCollected = this.gameState.totalCollected || 0;
     // Add current level's collected to total
     if (data.collected) {
@@ -212,10 +214,8 @@ export class GameOverScene extends Phaser.Scene {
         align: 'center',
       }).setOrigin(0.5);
       
-      // Check if revival was used - if so, no retry (TRUE game over)
-      const revivalUsedForLevel = this.gameState.revivalsUsed?.includes(this.gameState.currentLevel);
-      
-      if (revivalUsedForLevel) {
+      // If revival failed/skipped - TRUE game over (no retry)
+      if (this.revivalFailed) {
         // TRUE GAME OVER - no more chances
         this.add.text(width / 2, height * 0.72, '💀 GAME OVER 💀', {
           fontFamily: '"Press Start 2P"',

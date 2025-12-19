@@ -158,16 +158,7 @@ export class RevivalScene extends Phaser.Scene {
         color: '#39FF14',
       }).setOrigin(0.5);
       
-      // Mark revival used for this level
-      if (!this.gameState.revivalsUsed) {
-        this.gameState.revivalsUsed = [];
-      }
-      this.gameState.revivalsUsed.push(this.gameState.currentLevel);
-      console.log('[REVIVAL USED]', {
-        level: this.gameState.currentLevel,
-        revivalsUsed: [...this.gameState.revivalsUsed]
-      });
-      
+      // Unlimited revivals as long as you answer correctly!
       this.time.delayedCall(2000, () => {
         // Restart the level fresh (but with revival used up)
         this.scene.start('GameScene', {
@@ -203,6 +194,7 @@ export class RevivalScene extends Phaser.Scene {
       message: 'The doctor caught you!',
       collected: this.collected,
       totalTime: this.totalTime,
+      revivalFailed: true, // TRUE game over - no retry
     });
   }
 }
