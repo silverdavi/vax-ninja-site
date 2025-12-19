@@ -163,7 +163,7 @@ export const DIFFICULTY_CONFIG = {
     limpDuration: 200,          // Very short limp
     freezeChance: 0.02,         // 2% chance = very rare
     freezeInterval: 3000,
-    freezeDuration: 500,        // Very short freeze
+    freezeDuration: 250,        // Very short freeze (halved)
     blurSpotCount: 4,           // Few blur spots
   },
   easy: {
@@ -176,7 +176,7 @@ export const DIFFICULTY_CONFIG = {
     limpDuration: 250,          // Shorter limp
     freezeChance: 0.04,         // 4% chance every 2s = rare freezes
     freezeInterval: 2000,       // Check every 2 seconds
-    freezeDuration: 800,        // Shorter freeze
+    freezeDuration: 400,        // Shorter freeze (halved)
     blurSpotCount: 6,           // Fewer blur spots
   },
   normal: {
@@ -189,7 +189,7 @@ export const DIFFICULTY_CONFIG = {
     limpDuration: 350,
     freezeChance: 0.06,         // 6% chance every 2s
     freezeInterval: 2000,
-    freezeDuration: 1000,
+    freezeDuration: 500,        // Halved
     blurSpotCount: 8,
   },
   hard: {
@@ -202,7 +202,7 @@ export const DIFFICULTY_CONFIG = {
     limpDuration: 450,          // Longer limp
     freezeChance: 0.08,         // 8% chance every 2s
     freezeInterval: 2000,
-    freezeDuration: 1200,       // Longer freeze
+    freezeDuration: 600,        // Halved
     blurSpotCount: 10,          // More blur spots
   },
   master: {
@@ -215,7 +215,7 @@ export const DIFFICULTY_CONFIG = {
     limpDuration: 600,          // Long limp
     freezeChance: 0.12,         // 12% chance = frequent freezes
     freezeInterval: 1500,
-    freezeDuration: 1500,       // Long freeze
+    freezeDuration: 750,        // Halved
     blurSpotCount: 12,          // Many blur spots
   },
 };
