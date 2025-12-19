@@ -212,32 +212,56 @@ export class GameOverScene extends Phaser.Scene {
         align: 'center',
       }).setOrigin(0.5);
       
-      const retryBtn = this.add.text(width / 2, height * 0.72, this.isMobile ? 'TAP TO RETRY' : 'SPACE TO RETRY', {
-        fontFamily: '"Press Start 2P"',
-        fontSize: this.isMobile ? '12px' : '14px',
-        color: '#1a0a2e',
-        backgroundColor: '#FF6B9D',
-        padding: { x: 15, y: 10 },
-      }).setOrigin(0.5);
-      retryBtn.setInteractive({ useHandCursor: true });
+      // Check if revival was used - if so, no retry (TRUE game over)
+      const revivalUsedForLevel = this.gameState.revivalsUsed?.includes(this.gameState.currentLevel);
       
-      this.tweens.add({ targets: retryBtn, scale: 1.05, duration: 400, yoyo: true, repeat: -1 });
-      
-      const retry = () => {
-        const prevDebuffs = this.gameState.activeDebuffs.filter(id => id !== level.id);
-        this.scene.start('GameScene', {
-          gameState: {
-            currentLevel: this.gameState.currentLevel,
-            activeDebuffs: prevDebuffs,
-            totalCollected: this.gameState.totalCollected,
-            revivalsUsed: this.gameState.revivalsUsed || [],
-          },
-        });
-      };
-      
-      retryBtn.on('pointerdown', retry);
-      this.input.on('pointerdown', retry);
-      this.input.keyboard?.on('keydown-SPACE', retry);
+      if (revivalUsedForLevel) {
+        // TRUE GAME OVER - no more chances
+        this.add.text(width / 2, height * 0.72, '💀 GAME OVER 💀', {
+          fontFamily: '"Press Start 2P"',
+          fontSize: this.isMobile ? '14px' : '16px',
+          color: '#FF4444',
+        }).setOrigin(0.5);
+        
+        const menuBtn = this.add.text(width / 2, height * 0.82, 'BACK TO MENU', {
+          fontFamily: '"Press Start 2P"',
+          fontSize: this.isMobile ? '10px' : '12px',
+          color: '#1a0a2e',
+          backgroundColor: '#9A8AB0',
+          padding: { x: 15, y: 10 },
+        }).setOrigin(0.5);
+        menuBtn.setInteractive({ useHandCursor: true });
+        menuBtn.on('pointerdown', () => this.scene.start('TitleScene'));
+        this.input.keyboard?.on('keydown-SPACE', () => this.scene.start('TitleScene'));
+      } else {
+        // First death on this level - allow retry
+        const retryBtn = this.add.text(width / 2, height * 0.72, this.isMobile ? 'TAP TO RETRY' : 'SPACE TO RETRY', {
+          fontFamily: '"Press Start 2P"',
+          fontSize: this.isMobile ? '12px' : '14px',
+          color: '#1a0a2e',
+          backgroundColor: '#FF6B9D',
+          padding: { x: 15, y: 10 },
+        }).setOrigin(0.5);
+        retryBtn.setInteractive({ useHandCursor: true });
+        
+        this.tweens.add({ targets: retryBtn, scale: 1.05, duration: 400, yoyo: true, repeat: -1 });
+        
+        const retry = () => {
+          const prevDebuffs = this.gameState.activeDebuffs.filter(id => id !== level.id);
+          this.scene.start('GameScene', {
+            gameState: {
+              currentLevel: this.gameState.currentLevel,
+              activeDebuffs: prevDebuffs,
+              totalCollected: this.gameState.totalCollected,
+              revivalsUsed: this.gameState.revivalsUsed || [],
+            },
+          });
+        };
+        
+        retryBtn.on('pointerdown', retry);
+        this.input.on('pointerdown', retry);
+        this.input.keyboard?.on('keydown-SPACE', retry);
+      }
     }
     
     // Menu hint
