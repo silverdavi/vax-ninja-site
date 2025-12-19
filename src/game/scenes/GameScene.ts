@@ -74,6 +74,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data: { gameState?: GameState; revived?: boolean; collectedBefore?: number }) {
+    console.log('[GAMESCENE INIT]', {
+      hasData: !!data,
+      hasGameState: !!data?.gameState,
+      revivalsUsed: data?.gameState?.revivalsUsed,
+      revived: data?.revived
+    });
     this.gameState = data.gameState || { currentLevel: 0, activeDebuffs: [], totalCollected: 0, revivalsUsed: [] };
     // Ensure fields exist (for old saves)
     if (this.gameState.totalCollected === undefined) {
@@ -82,6 +88,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gameState.revivalsUsed === undefined) {
       this.gameState.revivalsUsed = [];
     }
+    console.log('[GAMESCENE INIT FINAL]', { revivalsUsed: [...this.gameState.revivalsUsed] });
     // Always start with 0 collected for this level attempt
     // (Even on revival - you restart the level fresh, just with revival used up)
     this.collected = 0;
