@@ -7,6 +7,7 @@ interface GameState {
   activeDebuffs: string[];
   totalCollected: number; // Total collectibles eaten across all levels
   revivalsUsed: number[]; // Levels where revival was already used
+  round: number; // Current round (1 = first playthrough, 2+ = NG+)
 }
 
 export class GameOverScene extends Phaser.Scene {
@@ -146,6 +147,7 @@ export class GameOverScene extends Phaser.Scene {
               activeDebuffs: this.gameState.activeDebuffs,
               totalCollected: this.gameState.totalCollected,
               revivalsUsed: this.gameState.revivalsUsed || [],
+              round: this.gameState.round || 1,
             },
           });
         };
@@ -155,30 +157,51 @@ export class GameOverScene extends Phaser.Scene {
         this.input.keyboard?.on('keydown-SPACE', goNext);
         
       } else {
-        // === GAME COMPLETE - SUBMIT TO LEADERBOARD ===
-        this.add.text(width / 2, height * 0.55, '🎉 ALL DISEASES COLLECTED! 🎉', {
+        // === ROUND COMPLETE - START NG+ ===
+        const currentRound = this.gameState.round || 1;
+        const nextRound = currentRound + 1;
+        const nextRoundLabel = nextRound === 2 ? '2nd' : nextRound === 3 ? '3rd' : `${nextRound}th`;
+        
+        this.add.text(width / 2, height * 0.55, '🎉 ROUND COMPLETE! 🎉', {
           fontFamily: '"Press Start 2P"',
           fontSize: this.isMobile ? '10px' : '14px',
           color: '#FF6B9D',
         }).setOrigin(0.5);
         
-        this.add.text(width / 2, height * 0.63, "You're a walking biohazard!", {
+        const speedPct = 100 + (nextRound - 1) * 25;
+        this.add.text(width / 2, height * 0.63, `${nextRoundLabel} Round: ${speedPct}% speed!`, {
           fontFamily: 'VT323',
           fontSize: textSize,
           color: '#FFE66D',
         }).setOrigin(0.5);
         
-        const menuBtn = this.add.text(width / 2, height * 0.80, 'VIEW LEADERBOARD', {
+        const ngPlusBtn = this.add.text(width / 2, height * 0.75, `START ROUND ${nextRound}`, {
           fontFamily: '"Press Start 2P"',
           fontSize: '12px',
-          color: '#FFE66D',
-          backgroundColor: '#3d2b5e',
+          color: '#1a0a2e',
+          backgroundColor: '#39FF14',
           padding: { x: 12, y: 8 },
         }).setOrigin(0.5);
-        menuBtn.setInteractive({ useHandCursor: true });
-        menuBtn.on('pointerdown', () => this.scene.start('LeaderboardScene'));
+        ngPlusBtn.setInteractive({ useHandCursor: true });
+        this.tweens.add({ targets: ngPlusBtn, scale: 1.05, duration: 400, yoyo: true, repeat: -1 });
         
-        this.add.text(width / 2, height * 0.95, 'Press M for menu', {
+        const startNextRound = () => {
+          this.scene.start('GameScene', {
+            gameState: {
+              currentLevel: 0,
+              activeDebuffs: this.gameState.activeDebuffs, // Keep all diseases!
+              totalCollected: this.gameState.totalCollected,
+              revivalsUsed: [],
+              round: nextRound,
+            },
+          });
+        };
+        
+        ngPlusBtn.on('pointerdown', startNextRound);
+        this.input.on('pointerdown', startNextRound);
+        this.input.keyboard?.on('keydown-SPACE', startNextRound);
+        
+        this.add.text(width / 2, height * 0.88, 'Press M for menu / leaderboard', {
           fontFamily: 'VT323',
           fontSize: '12px',
           color: '#9A8AB0',
@@ -254,6 +277,7 @@ export class GameOverScene extends Phaser.Scene {
               activeDebuffs: prevDebuffs,
               totalCollected: this.gameState.totalCollected,
               revivalsUsed: this.gameState.revivalsUsed || [],
+              round: this.gameState.round || 1,
             },
           });
         };

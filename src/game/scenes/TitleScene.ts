@@ -197,6 +197,9 @@ export class TitleScene extends Phaser.Scene {
         gameState: {
           currentLevel: 0,
           activeDebuffs: [],
+          totalCollected: 0,
+          revivalsUsed: [],
+          round: 1,
         },
       });
     });

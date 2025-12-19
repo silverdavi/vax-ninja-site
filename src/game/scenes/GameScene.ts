@@ -11,6 +11,7 @@ export interface GameState {
   activeDebuffs: string[];
   totalCollected: number; // Total collectibles eaten across all levels
   revivalsUsed: number[]; // Levels where revival was already used
+  round: number; // Current round (1 = first playthrough, 2+ = NG+)
 }
 
 export class GameScene extends Phaser.Scene {
@@ -40,6 +41,7 @@ export class GameScene extends Phaser.Scene {
   // Debuff state
   private oxygenLevel: number = 100;
   private speedMultiplier: number = 1;
+  private roundSpeedMult: number = 1; // NG+ speed multiplier (25% per round)
   private needsOxygen: boolean = false; // Only true AFTER beating COVID
   private hasBlur: boolean = false; // Measles blur effect
   private blurFX?: Phaser.FX.Blur; // Camera blur post-FX
@@ -75,7 +77,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data: { gameState?: GameState; revived?: boolean }) {
-    this.gameState = data.gameState || { currentLevel: 0, activeDebuffs: [], totalCollected: 0, revivalsUsed: [] };
+    this.gameState = data.gameState || { currentLevel: 0, activeDebuffs: [], totalCollected: 0, revivalsUsed: [], round: 1 };
     // Ensure fields exist (for old saves)
     if (this.gameState.totalCollected === undefined) {
       this.gameState.totalCollected = 0;
@@ -83,6 +85,12 @@ export class GameScene extends Phaser.Scene {
     if (this.gameState.revivalsUsed === undefined) {
       this.gameState.revivalsUsed = [];
     }
+    if (this.gameState.round === undefined) {
+      this.gameState.round = 1;
+    }
+    // NG+ speed multiplier: 25% faster per round after first
+    this.roundSpeedMult = 1 + (this.gameState.round - 1) * 0.25;
+    
     // Always start with 0 collected for this level attempt
     // (Even on revival - you restart the level fresh, just with revival used up)
     this.collected = 0;
@@ -174,7 +182,7 @@ export class GameScene extends Phaser.Scene {
       this.maze.offsetX,
       this.maze.offsetY
     );
-    this.player.speed = GAME_CONFIG.player.speed * this.speedMultiplier;
+    this.player.speed = GAME_CONFIG.player.speed * this.speedMultiplier * this.roundSpeedMult;
     
     // Whooping cough - can't stop moving (during level OR as debuff)
     if (level.id === 'whooping' || this.gameState.activeDebuffs.includes('whooping')) {
@@ -192,8 +200,8 @@ export class GameScene extends Phaser.Scene {
       this.maze.offsetY
     );
     
-    // Apply difficulty setting to doctor speed
-    this.doctor.speed = GAME_CONFIG.doctor.speed * this.diffConfig.doctorSpeedMult;
+    // Apply difficulty setting to doctor speed + round multiplier
+    this.doctor.speed = GAME_CONFIG.doctor.speed * this.diffConfig.doctorSpeedMult * this.roundSpeedMult;
     
     // Place collectibles
     this.placeCollectibles(level);
@@ -413,18 +421,21 @@ export class GameScene extends Phaser.Scene {
     const fontSize = this.isMobile ? '10px' : '14px';
     const settings = loadSettings();
     
-    // Level name (center)
-    this.add.text(width / 2, 6, `Level ${this.gameState.currentLevel + 1}: ${level.emoji} ${level.name}`, {
+    // Level name (center) - show round if NG+
+    const roundLabel = this.gameState.round > 1 ? ` (Round ${this.gameState.round})` : '';
+    this.add.text(width / 2, 6, `Level ${this.gameState.currentLevel + 1}: ${level.emoji} ${level.name}${roundLabel}`, {
       fontFamily: '"Press Start 2P"',
       fontSize: fontSize,
-      color: '#FF6B9D',
+      color: this.gameState.round > 1 ? this.brightenColor(0xFF6B9D, this.gameState.round) : '#FF6B9D',
     }).setOrigin(0.5, 0).setDepth(100);
     
     // Difficulty indicator (center, below level name)
     const diffEmojis: Record<string, string> = {
       noob: '👶', easy: '😊', normal: '😐', hard: '😤', master: '💀'
     };
-    const diffLabel = `${diffEmojis[settings.difficulty] || ''} ${settings.difficulty.toUpperCase()}`;
+    const speedPct = Math.round(this.roundSpeedMult * 100);
+    const roundInfo = this.gameState.round > 1 ? ` (${speedPct}% speed)` : '';
+    const diffLabel = `${diffEmojis[settings.difficulty] || ''} ${settings.difficulty.toUpperCase()}${roundInfo}`;
     this.add.text(width / 2, this.isMobile ? 22 : 26, diffLabel, {
       fontFamily: 'VT323',
       fontSize: this.isMobile ? '12px' : '14px',
@@ -545,12 +556,12 @@ export class GameScene extends Phaser.Scene {
         if (this.isGameOver) return;
         
         // Start limping - slow down and gray tint
-        this.player.speed = GAME_CONFIG.player.speed * 0.4;
+        this.player.speed = GAME_CONFIG.player.speed * 0.4 * this.roundSpeedMult;
         this.player.body.setFillStyle(0x9a8ab0);
         
         // End limp after duration
         this.time.delayedCall(limpDuration, () => {
-          this.player.speed = GAME_CONFIG.player.speed * this.speedMultiplier;
+          this.player.speed = GAME_CONFIG.player.speed * this.speedMultiplier * this.roundSpeedMult;
           if (!this.player.isFrozen) {
             this.player.body.setFillStyle(0xFFE135);
           }
@@ -1144,5 +1155,16 @@ export class GameScene extends Phaser.Scene {
       const oldest = this.speechBubbles.shift();
       if (oldest) oldest.destroy();
     }
+  }
+  
+  /**
+   * Brighten a color by 10% per round (for NG+)
+   */
+  private brightenColor(hex: number, round: number): string {
+    const brightenFactor = 1 + (round - 1) * 0.1;
+    const r = Math.min(255, Math.floor(((hex >> 16) & 0xFF) * brightenFactor));
+    const g = Math.min(255, Math.floor(((hex >> 8) & 0xFF) * brightenFactor));
+    const b = Math.min(255, Math.floor((hex & 0xFF) * brightenFactor));
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
 }
