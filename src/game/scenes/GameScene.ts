@@ -421,12 +421,12 @@ export class GameScene extends Phaser.Scene {
     const fontSize = this.isMobile ? '10px' : '14px';
     const settings = loadSettings();
     
-    // Level name (center) - show round if NG+
-    const roundLabel = this.gameState.round > 1 ? ` (Round ${this.gameState.round})` : '';
-    this.add.text(width / 2, 6, `Level ${this.gameState.currentLevel + 1}: ${level.emoji} ${level.name}${roundLabel}`, {
+    // Level name (center) - always show round
+    const roundNum = this.gameState.round || 1;
+    this.add.text(width / 2, 6, `Round ${roundNum}, Level ${this.gameState.currentLevel + 1}: ${level.emoji} ${level.name}`, {
       fontFamily: '"Press Start 2P"',
       fontSize: fontSize,
-      color: this.gameState.round > 1 ? this.brightenColor(0xFF6B9D, this.gameState.round) : '#FF6B9D',
+      color: roundNum > 1 ? this.brightenColor(0xFF6B9D, roundNum) : '#FF6B9D',
     }).setOrigin(0.5, 0).setDepth(100);
     
     // Difficulty indicator (center, below level name)
