@@ -384,9 +384,9 @@ export class GameScene extends Phaser.Scene {
     this.totalToCollect = this.collectibles.length;
     console.log(`[DEBUG] Actually placed: ${this.totalToCollect} collectibles`);
     
-    // Set collectible speed: 5% of player speed at level 1, +1% per level
+    // Set collectible speed: 5% of player speed at level 1, +2% per level
     const baseSpeed = GAME_CONFIG.player.speed * 0.05;
-    const levelBonus = this.gameState.currentLevel * GAME_CONFIG.player.speed * 0.01;
+    const levelBonus = this.gameState.currentLevel * GAME_CONFIG.player.speed * 0.02;
     this.collectibleSpeed = baseSpeed + levelBonus;
     
     // Oxygen tanks - only if we ALREADY have COVID
