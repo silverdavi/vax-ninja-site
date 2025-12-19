@@ -56,7 +56,8 @@ export class GameScene extends Phaser.Scene {
   private hasFatigue: boolean = false; // Hepatitis - periodic energy crashes
   
   // UI
-  private scoreText!: Phaser.GameObjects.Text;
+  private collectText!: Phaser.GameObjects.Text; // Shows collected/total
+  private totalScoreText!: Phaser.GameObjects.Text; // Shows cumulative score
   private oxygenText?: Phaser.GameObjects.Text;
   private lowO2Overlay?: Phaser.GameObjects.Rectangle;
   private freezeOverlay?: Phaser.GameObjects.Rectangle;
@@ -417,11 +418,20 @@ export class GameScene extends Phaser.Scene {
       color: '#FF6B9D',
     }).setOrigin(0.5, 0).setDepth(100);
     
-    this.scoreText = this.add.text(10, 8, `${this.collected}/${this.totalToCollect}`, {
+    // Collectibles counter (left side)
+    this.collectText = this.add.text(10, 8, `⭐ ${this.collected}/${this.totalToCollect}`, {
       fontFamily: '"Press Start 2P"',
       fontSize: fontSize,
       color: '#39FF14',
     }).setDepth(100);
+    
+    // Total score (right side, under level name or on right)
+    const currentTotal = this.gameState.totalCollected + this.collected;
+    this.totalScoreText = this.add.text(width - 10, 8, `SCORE: ${currentTotal}`, {
+      fontFamily: '"Press Start 2P"',
+      fontSize: this.isMobile ? '8px' : '10px',
+      color: '#FFE66D',
+    }).setOrigin(1, 0).setDepth(100);
     
     // Oxygen (only if needed)
     if (this.needsOxygen) {
@@ -908,7 +918,9 @@ export class GameScene extends Phaser.Scene {
       
       if (dist < collectRadius) {
         this.collected++;
-        this.scoreText.setText(`${this.collected}/${this.totalToCollect}`);
+        this.collectText.setText(`⭐ ${this.collected}/${this.totalToCollect}`);
+        const currentTotal = this.gameState.totalCollected + this.collected;
+        this.totalScoreText.setText(`SCORE: ${currentTotal}`);
         musicManager.playEffect('collect');
         
         this.tweens.add({
