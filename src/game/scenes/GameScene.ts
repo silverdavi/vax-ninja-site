@@ -896,11 +896,17 @@ export class GameScene extends Phaser.Scene {
 
   private checkCollisions() {
     // Collectibles - use pixel distance since they're moving between tiles
-    const collectRadius = this.maze.tileSize * 0.6; // Pickup radius
+    // Use generous pickup radius (full tile size)
+    const collectRadius = this.maze.tileSize;
     for (let i = this.collectibles.length - 1; i >= 0; i--) {
       const c = this.collectibles[i];
-      const dx = c.x - this.player.x;
-      const dy = c.y - this.player.y;
+      // Use visual position for collision
+      const cx = c.x;
+      const cy = c.y;
+      const px = this.player.x;
+      const py = this.player.y;
+      const dx = cx - px;
+      const dy = cy - py;
       const dist = Math.sqrt(dx * dx + dy * dy);
       
       if (dist < collectRadius) {
