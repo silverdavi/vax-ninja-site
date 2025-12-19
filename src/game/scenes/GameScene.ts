@@ -900,18 +900,6 @@ export class GameScene extends Phaser.Scene {
     const px = this.player.x;
     const py = this.player.y;
     
-    // Debug: log first collectible distance every 60 frames
-    if (this.collectibles.length > 0 && Math.random() < 0.02) {
-      const c0 = this.collectibles[0];
-      console.log('[COLLISION DEBUG]', {
-        playerX: px, playerY: py,
-        collectX: c0.x, collectY: c0.y,
-        dist: Math.sqrt((c0.x - px) ** 2 + (c0.y - py) ** 2),
-        radius: collectRadius,
-        collectiblesCount: this.collectibles.length
-      });
-    }
-    
     for (let i = this.collectibles.length - 1; i >= 0; i--) {
       const c = this.collectibles[i];
       const dx = c.x - px;
@@ -919,7 +907,6 @@ export class GameScene extends Phaser.Scene {
       const dist = Math.sqrt(dx * dx + dy * dy);
       
       if (dist < collectRadius) {
-        console.log('[COLLECTED!]', { dist, radius: collectRadius });
         this.collected++;
         this.scoreText.setText(`${this.collected}/${this.totalToCollect}`);
         musicManager.playEffect('collect');
