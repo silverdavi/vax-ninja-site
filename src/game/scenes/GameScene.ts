@@ -109,18 +109,21 @@ export class GameScene extends Phaser.Scene {
     // Smallpox - instant death (no grace period)
     this.hasOneHitKO = this.gameState.activeDebuffs.includes('smallpox');
     
-    // Mumps - swollen, bigger and slower
-    this.hasSwollen = this.gameState.activeDebuffs.includes('mumps');
+    // Get current level ID for "during level" checks
+    const currentLevelId = GAME_CONFIG.levels[this.gameState.currentLevel]?.id || '';
+    
+    // Mumps - swollen, bigger and slower (during level OR as debuff)
+    this.hasSwollen = currentLevelId === 'mumps' || this.gameState.activeDebuffs.includes('mumps');
     if (this.hasSwollen) {
       this.speedMultiplier *= 0.85; // 15% slower
     }
     
-    // Rubella - dizzy, controls sometimes reversed
-    this.hasDizzy = this.gameState.activeDebuffs.includes('rubella');
+    // Rubella - dizzy, controls sometimes reversed (during level OR as debuff)
+    this.hasDizzy = currentLevelId === 'rubella' || this.gameState.activeDebuffs.includes('rubella');
     this.isDizzyReversed = false;
     
-    // Hepatitis - fatigue, periodic crashes
-    this.hasFatigue = this.gameState.activeDebuffs.includes('hepatitis');
+    // Hepatitis - fatigue, periodic crashes (during level OR as debuff)
+    this.hasFatigue = currentLevelId === 'hepatitis' || this.gameState.activeDebuffs.includes('hepatitis');
     this.nearMissTimer = 0;
     
     // Load difficulty settings
@@ -172,7 +175,8 @@ export class GameScene extends Phaser.Scene {
     );
     this.player.speed = GAME_CONFIG.player.speed * this.speedMultiplier;
     
-    if (this.gameState.activeDebuffs.includes('whooping')) {
+    // Whooping cough - can't stop moving (during level OR as debuff)
+    if (level.id === 'whooping' || this.gameState.activeDebuffs.includes('whooping')) {
       this.player.cantStopMoving = true;
     }
     
@@ -538,8 +542,9 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(1000 + Math.random() * 1000, triggerLimp);
     }
     
-    // Rubella dizzy - controls randomly reverse
-    if (this.hasDizzy) {
+    // Rubella dizzy - controls randomly reverse (during level OR as debuff)
+    const isRubella = level.id === 'rubella' || this.hasDizzy;
+    if (isRubella) {
       this.time.addEvent({
         delay: 3000 + Math.random() * 2000, // Every 3-5 seconds
         loop: true,
@@ -549,17 +554,26 @@ export class GameScene extends Phaser.Scene {
             this.isDizzyReversed = true;
             // Flash screen pink briefly
             this.cameras.main.flash(200, 255, 105, 180, false);
+            // Show text indicator
+            const txt = this.add.text(this.cameras.main.width / 2, 60, '🔄 REVERSED!', {
+              fontFamily: '"Press Start 2P"',
+              fontSize: '10px',
+              color: '#FF69B4',
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(300);
+            
             // Reset after 2 seconds
             this.time.delayedCall(2000, () => {
               this.isDizzyReversed = false;
+              txt.destroy();
             });
           }
         },
       });
     }
     
-    // Hepatitis fatigue - periodic energy crashes
-    if (this.hasFatigue) {
+    // Hepatitis fatigue - periodic energy crashes (during level OR as debuff)
+    const isHepatitis = level.id === 'hepatitis' || this.hasFatigue;
+    if (isHepatitis) {
       this.time.addEvent({
         delay: 8000 + Math.random() * 4000, // Every 8-12 seconds
         loop: true,
