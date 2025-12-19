@@ -71,35 +71,66 @@ export class LeaderboardScene extends Phaser.Scene {
         return;
       }
       
-      // Column headers
-      const headerY = 70;
-      const fontSize = this.isMobile ? '10px' : '12px';
+      // Column layout - responsive
+      const headerY = 65;
+      const headerSize = this.isMobile ? '8px' : '10px';
+      const dataSize = this.isMobile ? '14px' : '16px';
       
-      this.add.text(50, headerY, '#', { fontFamily: '"Press Start 2P"', fontSize, color: '#9A8AB0' });
-      this.add.text(80, headerY, 'NAME', { fontFamily: '"Press Start 2P"', fontSize, color: '#9A8AB0' });
-      this.add.text(width - 200, headerY, 'LVL', { fontFamily: '"Press Start 2P"', fontSize, color: '#9A8AB0' });
-      this.add.text(width - 130, headerY, 'DISEASES', { fontFamily: '"Press Start 2P"', fontSize, color: '#9A8AB0' });
+      // Column positions (proportional)
+      const cols = {
+        rank: 20,
+        name: 50,
+        score: this.isMobile ? width * 0.35 : width * 0.30,
+        level: this.isMobile ? width * 0.50 : width * 0.45,
+        diseases: this.isMobile ? width * 0.62 : width * 0.55,
+        date: this.isMobile ? width * 0.82 : width * 0.75,
+      };
+      
+      // Headers
+      this.add.text(cols.rank, headerY, '#', { fontFamily: '"Press Start 2P"', fontSize: headerSize, color: '#9A8AB0' });
+      this.add.text(cols.name, headerY, 'NAME', { fontFamily: '"Press Start 2P"', fontSize: headerSize, color: '#9A8AB0' });
+      this.add.text(cols.score, headerY, 'SCORE', { fontFamily: '"Press Start 2P"', fontSize: headerSize, color: '#9A8AB0' });
+      this.add.text(cols.level, headerY, 'LVL', { fontFamily: '"Press Start 2P"', fontSize: headerSize, color: '#9A8AB0' });
+      this.add.text(cols.diseases, headerY, '🦠', { fontSize: '14px' });
+      this.add.text(cols.date, headerY, 'DATE', { fontFamily: '"Press Start 2P"', fontSize: headerSize, color: '#9A8AB0' });
+      
+      // Divider line
+      const line = this.add.graphics();
+      line.lineStyle(1, 0x9A8AB0, 0.5);
+      line.lineBetween(15, headerY + 18, width - 15, headerY + 18);
       
       // Score entries
-      const rowHeight = this.isMobile ? 35 : 40;
+      const rowHeight = this.isMobile ? 32 : 38;
+      const startY = headerY + 28;
+      
       scores.forEach((entry, index) => {
-        const y = 100 + index * rowHeight;
+        const y = startY + index * rowHeight;
         const color = index === 0 ? '#FFE66D' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : '#E8E8E8';
         
-        // Rank
+        // Rank with medal
         const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}`;
-        this.add.text(50, y, medal, { fontFamily: 'VT323', fontSize: '16px', color });
+        this.add.text(cols.rank, y, medal, { fontFamily: 'VT323', fontSize: dataSize, color });
         
-        // Name (truncate if too long)
-        const displayName = entry.name.length > 12 ? entry.name.slice(0, 10) + '..' : entry.name;
-        this.add.text(80, y, displayName, { fontFamily: 'VT323', fontSize: '16px', color });
+        // Name (truncate)
+        const maxNameLen = this.isMobile ? 6 : 8;
+        const displayName = entry.name.length > maxNameLen ? entry.name.slice(0, maxNameLen - 1) + '..' : entry.name;
+        this.add.text(cols.name, y, displayName, { fontFamily: 'VT323', fontSize: dataSize, color });
+        
+        // Score
+        this.add.text(cols.score, y, `${entry.score}`, { fontFamily: 'VT323', fontSize: dataSize, color: '#39FF14' });
         
         // Level
-        this.add.text(width - 200, y, `${entry.level}`, { fontFamily: 'VT323', fontSize: '16px', color });
+        this.add.text(cols.level, y, `${entry.level}`, { fontFamily: 'VT323', fontSize: dataSize, color });
         
-        // Diseases as emojis
+        // Diseases as emojis (compact)
         const emojis = this.getDebuffEmojis(entry.debuffs);
-        this.add.text(width - 130, y, emojis, { fontSize: '14px' });
+        this.add.text(cols.diseases, y, emojis || '-', { fontSize: this.isMobile ? '10px' : '12px' });
+        
+        // Date
+        const dateStr = entry.timestamp 
+          ? new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '-';
+        this.add.text(cols.date, y, dateStr, { fontFamily: 'VT323', fontSize: this.isMobile ? '12px' : '14px', color: '#9A8AB0' });
       });
       
     } catch (error) {
