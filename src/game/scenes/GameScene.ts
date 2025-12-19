@@ -455,13 +455,13 @@ export class GameScene extends Phaser.Scene {
       }).setDepth(100);
     }
     
-    // Debuff icons
+    // Debuff icons (below score, right side)
     if (this.gameState.activeDebuffs.length > 0) {
       const debuffs = this.gameState.activeDebuffs.map(id => {
         const l = GAME_CONFIG.levels.find(x => x.id === id);
         return l ? l.emoji : '';
       }).join('');
-      this.add.text(width - 10, 8, debuffs, { fontSize: '14px' }).setOrigin(1, 0).setDepth(100);
+      this.add.text(width - 10, this.isMobile ? 22 : 26, debuffs, { fontSize: this.isMobile ? '12px' : '14px' }).setOrigin(1, 0).setDepth(100);
     }
     
     if (!this.isMobile) {
